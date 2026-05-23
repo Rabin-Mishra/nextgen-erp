@@ -1,17 +1,35 @@
 import React from "react";
-import { PageHeader } from "../../../components/layout/PageHeader";
+import { getCurrentUser } from "@/auth/session";
+import { getSettingsWarehouses, getSettingsFiscalYears } from "../../../modules/settings/queries";
+import { getSystemSettings } from "../../../lib/settings-store";
+import { SettingsPage } from "../../../components/settings/SettingsPage";
+import { redirect } from "next/navigation";
 
-export default function SettingsPage() {
+export const dynamic = "force-dynamic";
+
+export default async function Page() {
+  const sessionUser = await getCurrentUser();
+
+  if (!sessionUser) {
+    redirect("/login");
+  }
+
+  // Pre-fetch all settings structures in parallel on the server
+  const [warehouses, fiscalYears] = await Promise.all([
+    getSettingsWarehouses(),
+    getSettingsFiscalYears(),
+  ]);
+
+  const systemSettings = getSystemSettings();
+
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Settings"
-        description="Configure system preferences, user profiles, and ERP defaults."
-      />
-      <div className="rounded-2xl border border-dashed border-zinc-200 bg-white p-12 text-center dark:border-zinc-800 dark:bg-zinc-950">
-        <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">Settings are available in the next iteration.</h3>
-        <p className="text-xs text-zinc-500 mt-1 dark:text-zinc-400">This area will centralize permissions, appearance, and company settings.</p>
-      </div>
-    </div>
+    <SettingsPage
+      initialSettings={systemSettings}
+      initialWarehouses={warehouses}
+      initialFiscalYears={fiscalYears}
+      sessionUser={{
+        role: (sessionUser as any).role || "VIEWER",
+      }}
+    />
   );
 }

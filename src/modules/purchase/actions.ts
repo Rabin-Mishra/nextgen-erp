@@ -21,7 +21,7 @@ import {
   type UpdateSupplierInput,
   type UploadBillInput,
 } from "./types";
-import { getPOById } from "./queries";
+import { getPOById, getSuppliers, getActiveProducts, getVendorLedger } from "./queries";
 
 function toDate(value: string | Date) {
   return value instanceof Date ? value : new Date(value);
@@ -501,3 +501,18 @@ export async function updateSupplier(id: string, data: UpdateSupplierInput, user
     return updated;
   });
 }
+
+export async function getPurchaseLookups() {
+  const suppliersResp = await getSuppliers();
+  const products = await getActiveProducts();
+  return {
+    suppliers: suppliersResp.data,
+    products,
+  };
+}
+
+export async function fetchSupplierLedger(supplierId: string) {
+  return getVendorLedger(supplierId);
+}
+
+

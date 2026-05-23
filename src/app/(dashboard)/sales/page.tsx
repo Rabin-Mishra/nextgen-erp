@@ -6,6 +6,8 @@ import { CreateInvoiceForm } from "@/components/sales/CreateInvoiceForm";
 import { InvoiceTable } from "@/components/sales/InvoiceTable";
 import { OutstandingDuesTable } from "@/components/sales/OutstandingDuesTable";
 import { SalesStats } from "@/components/sales/SalesStats";
+import { CustomerListTable } from "@/components/sales/CustomerListTable";
+import { AddCustomerModal } from "@/components/sales/AddCustomerModal";
 import { formatNPR } from "@/lib/utils";
 import {
   getCustomers,
@@ -104,34 +106,14 @@ export default async function SalesPage({ searchParams }: SalesPageProps) {
 
       {tab === "customers" && (
         <section className="rounded-2xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-950">
-          <div className="mb-5">
-            <h2 className="text-lg font-semibold">Customers</h2>
-            <p className="text-sm text-zinc-500">Active customer accounts and credit limits.</p>
+          <div className="mb-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h2 className="text-lg font-semibold">Customers</h2>
+              <p className="text-sm text-zinc-500">Active customer accounts, credit limits, and detailed double-entry ledgers.</p>
+            </div>
+            <AddCustomerModal />
           </div>
-          <div className="overflow-x-auto rounded-lg border">
-            <table className="w-full text-sm">
-              <thead className="bg-zinc-50 dark:bg-zinc-900">
-                <tr>
-                  <th className="px-4 py-2 text-left">Code</th>
-                  <th className="px-4 py-2 text-left">Customer</th>
-                  <th className="px-4 py-2 text-left">Type</th>
-                  <th className="px-4 py-2 text-left">Phone</th>
-                  <th className="px-4 py-2 text-right">Credit Limit</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {customersResp.data.map((customer) => (
-                  <tr key={customer.id}>
-                    <td className="px-4 py-2 font-mono">{customer.code}</td>
-                    <td className="px-4 py-2 font-medium">{customer.name}</td>
-                    <td className="px-4 py-2"><Badge variant="outline">{customer.customerType}</Badge></td>
-                    <td className="px-4 py-2">{customer.phone ?? "-"}</td>
-                    <td className="px-4 py-2 text-right">{formatNPR(Number(customer.creditLimit))}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <CustomerListTable customers={customersResp.data as any} />
         </section>
       )}
 

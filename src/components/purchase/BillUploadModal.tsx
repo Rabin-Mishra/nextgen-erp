@@ -3,20 +3,27 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useState, useRef } from "react";
+import { useRouter } from "next/navigation";
+import { uploadBill } from "@/modules/purchase/actions";
 
 interface BillUploadModalProps {
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   poNumber?: string;
+  purchaseOrderId: string;
   existingBillUrl?: string | null;
+  userId: string;
 }
 
 export function BillUploadModal({
   open: openProp,
   onOpenChange,
   poNumber = "",
+  purchaseOrderId,
   existingBillUrl = null,
+  userId,
 }: BillUploadModalProps) {
+  const router = useRouter();
   const [internalOpen, setInternalOpen] = useState(false);
   const [preview, setPreview] = useState<string | null>(existingBillUrl);
   const [uploading, setUploading] = useState(false);
@@ -55,13 +62,22 @@ export function BillUploadModal({
 
     setUploading(true);
     try {
-      // Upload to storage and get URL, then call uploadBill action
-      console.log("Uploading bill for", poNumber);
+      // Store the base64/mock data URL onto the purchase order
+      await uploadBill(
+        {
+          purchaseOrderId,
+          billImageUrl: preview,
+        },
+        userId
+      );
+
+      alert("Supplier bill attached successfully!");
       setOpen(false);
       setPreview(null);
-    } catch (err) {
+      router.refresh();
+    } catch (err: any) {
       console.error(err);
-      alert("Error uploading bill");
+      alert("Error: " + (err.message || "Failed to attach bill"));
     } finally {
       setUploading(false);
     }
@@ -88,19 +104,19 @@ export function BillUploadModal({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Upload Bill - {poNumber}</DialogTitle>
+          <DialogTitle>Upload Bill — PO: <span className="font-mono text-zinc-600">{poNumber}</span></DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
           {/* Drag & Drop Area or Preview */}
           {preview ? (
             <div className="bg-zinc-100 dark:bg-zinc-900 rounded-lg p-4">
-              {preview.startsWith("data:image") ? (
+              {preview.startsWith("data:image") || preview.startsWith("http") || preview.startsWith("/") ? (
                 <img src={preview} alt="Bill preview" className="w-full max-h-64 object-contain" />
               ) : (
                 <div className="text-center py-8">
-                  <p className="text-sm text-zinc-600">PDF File Selected</p>
-                  <p className="font-mono text-xs mt-2">Bill Preview</p>
+                  <p className="text-sm text-zinc-600 font-semibold">Document Attached</p>
+                  <p className="font-mono text-xs mt-2 text-zinc-500">PDF / Document File Attached</p>
                 </div>
               )}
             </div>
@@ -139,14 +155,15 @@ export function BillUploadModal({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)}>
+          <Button variant="outline" onClick={() => setOpen(false)} disabled={uploading}>
             Cancel
           </Button>
           <Button onClick={handleUpload} disabled={!preview || uploading}>
-            {uploading ? "Uploading..." : "Save Bill"}
+            {uploading ? "Saving..." : "Save Bill"}
           </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
   );
 }
+

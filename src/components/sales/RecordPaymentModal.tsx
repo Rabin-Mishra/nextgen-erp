@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { formatNPR } from "@/lib/utils";
 import { recordSalePayment } from "@/modules/sales/actions";
+import { recordSalePaymentSchema } from "@/modules/sales/types";
+import { toast } from "sonner";
 
 interface RecordPaymentModalProps {
   open?: boolean;
@@ -46,20 +48,44 @@ export function RecordPaymentModal({
     setError("");
     if (!invoiceId) {
       setError("Invoice is required.");
+      toast.error("Invoice selection is missing.");
       return;
     }
     if (amount <= 0 || amount > balance) {
       setError("Payment amount must be greater than zero and within the balance due.");
+      toast.error("Amount must be between 0 and outstanding balance.");
+      return;
+    }
+
+    const payload = {
+      invoiceId,
+      amount: Number(amount),
+      paymentMethod: paymentMethod as any,
+      paymentDate,
+      notes: notes || undefined,
+    };
+
+    const parsed = recordSalePaymentSchema.safeParse(payload);
+    if (!parsed.success) {
+      const fieldErrors = parsed.error.flatten().fieldErrors;
+      const errorMsg = Object.entries(fieldErrors)
+        .map(([field, errs]) => `${field}: ${errs?.join(", ")}`)
+        .join(" | ") || "Form validation failed.";
+      setError(errorMsg);
+      toast.error(`Validation Failed: ${errorMsg}`);
       return;
     }
 
     startTransition(async () => {
       try {
-        await recordSalePayment({ invoiceId, amount, paymentMethod: paymentMethod as any, paymentDate, notes });
+        await recordSalePayment(parsed.data);
+        toast.success(`Payment of ${formatNPR(Number(parsed.data.amount))} recorded successfully!`);
         setOpen(false);
         router.refresh();
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Could not record payment.");
+        const errMsg = err instanceof Error ? err.message : "Could not record payment.";
+        setError(errMsg);
+        toast.error(`Error: ${errMsg}`);
       }
     });
   };

@@ -1,10 +1,12 @@
 "use client";
 
+import { useState } from "react";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { INVOICE_COLORS } from "@/lib/constants";
 import { formatNPR } from "@/lib/utils";
 import type { SalesInvoiceSchema } from "@/modules/sales/types";
+import { generateInvoicePDF } from "@/lib/invoice-pdf";
 
 interface InvoicePreviewModalProps {
   open?: boolean;
@@ -13,11 +15,31 @@ interface InvoicePreviewModalProps {
 }
 
 export function InvoicePreviewModal({ open = false, onOpenChange, invoice }: InvoicePreviewModalProps) {
+  const [downloading, setDownloading] = useState(false);
   const headerColor = invoice ? INVOICE_COLORS[invoice.invoiceType] : INVOICE_COLORS.RETAIL;
+
+  const handleDownloadPDF = async () => {
+    if (!invoice) return;
+    setDownloading(true);
+    try {
+      const blob = await generateInvoicePDF(invoice);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${invoice.invoiceNumber}.pdf`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Failed to generate PDF", err);
+      alert("Failed to download PDF");
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-screen max-w-4xl overflow-y-auto">
+      <DialogContent className="w-[98vw] max-w-[98vw] h-[95vh] flex flex-col overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Invoice Preview</DialogTitle>
         </DialogHeader>
@@ -93,8 +115,12 @@ export function InvoicePreviewModal({ open = false, onOpenChange, invoice }: Inv
 
         <DialogFooter>
           <Button variant="outline" onClick={() => window.print()}>Print</Button>
-          <Button variant="outline">Download PDF</Button>
-          <Button variant="outline">Send Email</Button>
+          <Button variant="outline" onClick={handleDownloadPDF} disabled={downloading}>
+            {downloading ? "Generating..." : "Download PDF"}
+          </Button>
+          <Button variant="outline" onClick={() => alert("Email features pending SMTP setup.")}>
+            Send Email
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

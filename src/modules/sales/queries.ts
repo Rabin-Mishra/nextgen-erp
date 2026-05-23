@@ -228,8 +228,21 @@ export async function getCustomers(search?: string, type?: CustomerType, page = 
     db.customer.count({ where }),
   ]);
 
+  const customerBalances = await Promise.all(
+    customers.map(async (customer) => {
+      const latest = await db.ledgerEntry.findFirst({
+        where: { partyType: "CUSTOMER", partyId: customer.id },
+        orderBy: [{ entryDate: "desc" }, { createdAt: "desc" }],
+      });
+      return {
+        ...mapCustomer(customer),
+        balance: latest?.runningBalance?.toString() ?? customer.openingBalance.toString(),
+      };
+    })
+  );
+
   return {
-    data: customers.map(mapCustomer),
+    data: customerBalances,
     pagination: { page, pageSize, total },
   };
 }

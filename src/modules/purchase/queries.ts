@@ -201,8 +201,21 @@ export async function getSuppliers(search?: string, page = 1, pageSize = 25) {
     db.supplier.count({ where }),
   ]);
 
+  const supplierBalances = await Promise.all(
+    suppliers.map(async (supplier) => {
+      const latest = await db.ledgerEntry.findFirst({
+        where: { partyType: "SUPPLIER", partyId: supplier.id },
+        orderBy: [{ entryDate: "desc" }, { createdAt: "desc" }],
+      });
+      return {
+        ...mapSupplier(supplier),
+        balance: latest?.runningBalance?.toString() ?? supplier.openingBalance.toString(),
+      };
+    })
+  );
+
   return {
-    data: suppliers.map(mapSupplier),
+    data: supplierBalances,
     pagination: { page, pageSize, total },
   };
 }
@@ -282,3 +295,28 @@ export async function getVendorLedger(supplierId: string, dateFrom?: Date, dateT
     });
   });
 }
+
+export async function getActiveProducts() {
+  const db = await getDb();
+  const products = await db.product.findMany({
+    where: { isActive: true },
+    include: {
+      variants: {
+        where: { isActive: true },
+      },
+    },
+    orderBy: { name: "asc" },
+  });
+
+  return products.map((p) => ({
+    id: p.id,
+    code: p.code,
+    name: p.name,
+    unit: p.unit,
+    variants: p.variants.map((v) => ({
+      supplierId: v.supplierId,
+      purchasePrice: v.purchasePrice.toString(),
+    })),
+  }));
+}
+

@@ -18,7 +18,7 @@ import {
   type RecordSalePaymentInput,
   type UpdateCustomerInput,
 } from "./types";
-import { getInvoiceById } from "./queries";
+import { getInvoiceById, getCustomerLedger, getSalesInvoices } from "./queries";
 
 function toDate(value: string | Date) {
   return value instanceof Date ? value : new Date(value);
@@ -636,3 +636,20 @@ export async function updateCustomer(id: string, data: UpdateCustomerInput, user
     return updated;
   });
 }
+
+export async function fetchCustomerLedgerAction(customerId: string) {
+  return getCustomerLedger(customerId);
+}
+
+export async function fetchUnpaidInvoicesAction(customerId: string) {
+  const [sent, partial, overdue] = await Promise.all([
+    getSalesInvoices({ customerId, status: "SENT", pageSize: 100 }),
+    getSalesInvoices({ customerId, status: "PARTIAL", pageSize: 100 }),
+    getSalesInvoices({ customerId, status: "OVERDUE", pageSize: 100 }),
+  ]);
+  
+  return [...sent.data, ...partial.data, ...overdue.data].sort(
+    (a, b) => new Date(b.invoiceDate).getTime() - new Date(a.invoiceDate).getTime()
+  );
+}
+

@@ -8,7 +8,9 @@ import { Input } from "@/components/ui/input";
 import { INVOICE_COLORS, VAT_RATE } from "@/lib/constants";
 import { formatNPR } from "@/lib/utils";
 import { createInvoice } from "@/modules/sales/actions";
+import { createInvoiceSchema } from "@/modules/sales/types";
 import type { CustomerOptionSchema, ProductOptionSchema, ProjectOptionSchema, WarehouseOptionSchema } from "@/modules/sales/types";
+import { toast } from "sonner";
 
 type InvoiceType = "RETAIL" | "WHOLESALE" | "PROJECT";
 
@@ -105,51 +107,65 @@ export function CreateInvoiceForm({ customers, products, projects, warehouses }:
 
   const handleSubmit = () => {
     setError("");
-    if (!customerId) {
-      setError("Select a customer.");
+    
+    // 1. Prepare raw form payload
+    const payload = {
+      customerId,
+      invoiceType,
+      projectId: invoiceType === "PROJECT" ? projectId || undefined : undefined,
+      invoiceDate,
+      dueDate: dueDate || undefined,
+      paymentMethod: paymentMethod as any,
+      discountPercent: Number(discountPercent),
+      vatPercent: vatEnabled ? 13 : 0,
+      notes: notes || undefined,
+      initialPaymentAmount: Number(paymentNow),
+      initialPaymentMethod: paymentNow > 0 ? (paymentMethod as any) : undefined,
+      items: items.map((item) => ({
+        productId: item.productId,
+        warehouseId: item.warehouseId,
+        qty: Number(item.qty),
+        unitPrice: Number(item.unitPrice),
+        discountPercent: Number(item.discountPercent),
+      })),
+    };
+
+    // 2. Client-side Zod schema validation
+    const parsed = createInvoiceSchema.safeParse(payload);
+    if (!parsed.success) {
+      const fieldErrors = parsed.error.flatten().fieldErrors;
+      const errorMsg = Object.entries(fieldErrors)
+        .map(([field, errs]) => `${field}: ${errs?.join(", ")}`)
+        .join(" | ") || "Form validation failed.";
+      setError(errorMsg);
+      toast.error(`Validation Failed: ${errorMsg}`);
       return;
     }
-    if (invoiceType === "PROJECT" && !projectId) {
-      setError("Select a project for project invoices.");
-      return;
-    }
-    if (items.length === 0) {
-      setError("Add at least one item.");
-      return;
-    }
+
+    // 3. Dynamic stock check
     const invalidStock = items.find((item) => item.qty > availableQty(item));
     if (invalidStock) {
-      setError("One or more items exceed available stock.");
+      const prodName = products.find((p) => p.id === invalidStock.productId)?.name || "Item";
+      setError(`Stock bounds exceeded for ${prodName}.`);
+      toast.error(`Stock levels exceeded for ${prodName}.`);
       return;
     }
 
     startTransition(async () => {
       try {
-        await createInvoice({
-          customerId,
-          invoiceType,
-          projectId: invoiceType === "PROJECT" ? projectId : undefined,
-          invoiceDate,
-          dueDate: dueDate || undefined,
-          paymentMethod: paymentMethod as any,
-          discountPercent,
-          vatPercent: vatEnabled ? 13 : 0,
-          notes,
-          initialPaymentAmount: paymentNow,
-          initialPaymentMethod: paymentNow > 0 ? (paymentMethod as any) : undefined,
-          items: items.map((item) => ({
-            productId: item.productId,
-            warehouseId: item.warehouseId,
-            qty: item.qty,
-            unitPrice: item.unitPrice,
-            discountPercent: item.discountPercent,
-          })),
-        });
+        await createInvoice(parsed.data);
+        toast.success("Sales invoice created successfully!");
         setOpen(false);
         setStep(1);
+        setItems([]);
+        setDiscountPercent(0);
+        setPaymentNow(0);
+        setNotes("");
         router.refresh();
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Could not create invoice.");
+        const errMsg = err instanceof Error ? err.message : "Could not create invoice.";
+        setError(errMsg);
+        toast.error(`Error: ${errMsg}`);
       }
     });
   };
@@ -162,7 +178,7 @@ export function CreateInvoiceForm({ customers, products, projects, warehouses }:
       <Button onClick={() => setOpen(true)}>New Invoice</Button>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-h-screen max-w-6xl overflow-y-auto">
+        <DialogContent className="w-[98vw] max-w-[98vw] h-[95vh] flex flex-col overflow-hidden">
           <DialogHeader>
             <DialogTitle>Create Sales Invoice</DialogTitle>
           </DialogHeader>
@@ -173,7 +189,7 @@ export function CreateInvoiceForm({ customers, products, projects, warehouses }:
             <button type="button" onClick={() => setStep(3)} className={stepClasses(3)}>3. Totals</button>
           </div>
 
-          <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
+          <div className="flex-1 overflow-y-auto grid gap-6 lg:grid-cols-[1fr_320px]">
             <div className="space-y-5">
               {step === 1 && (
                 <div className="space-y-4">
