@@ -88,7 +88,7 @@ export default async function PurchasePage({ searchParams }: PurchasePageProps) 
             </div>
             <AddSupplierModal userId={userId} />
           </div>
-          <SupplierListTable suppliers={suppliersResp.data as any} />
+          <SupplierListTable suppliers={suppliersResp.data as any} userId={userId} />
         </section>
       )}
     </div>

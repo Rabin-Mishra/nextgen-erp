@@ -180,7 +180,7 @@ export async function getPurchaseStats() {
 export async function getSuppliers(search?: string, page = 1, pageSize = 25) {
   const db = await getDb();
 
-  const where: any = { isActive: true };
+  const where: any = {};
   if (search) {
     where.OR = [
       { code: { contains: search, mode: "insensitive" } },

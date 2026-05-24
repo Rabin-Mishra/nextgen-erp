@@ -9,6 +9,7 @@ import { revalidatePath } from "next/cache";
 export async function createUserAction(formData: {
   name: string;
   email: string;
+  phone?: string;
   password?: string;
   role: Role;
   isActive: boolean;
@@ -46,6 +47,7 @@ export async function createUserAction(formData: {
     data: {
       name: formData.name.trim(),
       email: formData.email.trim().toLowerCase(),
+      phone: formData.phone?.trim() || null,
       passwordHash,
       role: formData.role,
       isActive: formData.isActive,

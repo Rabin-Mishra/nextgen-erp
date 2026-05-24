@@ -6,6 +6,7 @@ export interface UserItem {
   id: string;
   name: string;
   email: string;
+  phone: string | null;
   role: Role;
   isActive: boolean;
   createdAt: Date;
@@ -25,6 +26,7 @@ export async function getUsersList(): Promise<UserItem[]> {
     id: u.id,
     name: u.name,
     email: u.email,
+    phone: u.phone,
     role: u.role as Role,
     isActive: u.isActive,
     createdAt: u.createdAt,

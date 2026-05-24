@@ -7,7 +7,7 @@ import { DataTable } from "../shared/DataTable";
 import { StatusBadge } from "../shared/StatusBadge";
 import { ColumnDef } from "@tanstack/react-table";
 import { Role, ROLE_LABELS, INVOICE_COLORS } from "../../lib/constants";
-import { Users, UserPlus, ShieldAlert, KeyRound, ShieldCheck, Lock, Activity } from "lucide-react";
+import { Users, UserPlus, ShieldAlert, KeyRound, ShieldCheck, Lock, Activity, Pencil } from "lucide-react";
 import { Button } from "../ui/button";
 import { AddUserModal } from "./AddUserModal";
 import { EditUserModal } from "./EditUserModal";
@@ -17,6 +17,7 @@ interface UserItem {
   id: string;
   name: string;
   email: string;
+  phone: string | null;
   role: Role;
   isActive: boolean;
   createdAt: Date;
@@ -156,20 +157,24 @@ export function UsersPage({ initialUsers, sessionUser }: UsersPageProps) {
     {
       id: "actions",
       header: "Operations",
-      cell: ({ row }) => (
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => {
-            setSelectedUser(row.original);
-            setIsEditOpen(true);
-          }}
-          disabled={!isSuperAdmin}
-          className="h-8 text-xs font-bold border-zinc-200 dark:border-zinc-800 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-900 disabled:opacity-50"
-        >
-          Manage Access
-        </Button>
-      ),
+      cell: ({ row }) => {
+        const canEdit = isSuperAdmin || row.original.id === sessionUser.id;
+        if (!canEdit) return null;
+        return (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              setSelectedUser(row.original);
+              setIsEditOpen(true);
+            }}
+            className="h-8 w-8 p-0 rounded-lg border-zinc-200 dark:border-zinc-800 hover:bg-primary/5 hover:border-primary/30 hover:text-primary transition-all"
+            title="Edit user credentials"
+          >
+            <Pencil className="h-3.5 w-3.5" />
+          </Button>
+        );
+      },
     },
   ];
 

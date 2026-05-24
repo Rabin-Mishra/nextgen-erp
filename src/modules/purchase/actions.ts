@@ -1,6 +1,7 @@
 "use server";
 
 import { getDb } from "@/lib/db";
+import { revalidatePath } from "next/cache";
 import Decimal from "decimal.js";
 import type { PaymentMode } from "@/generated/prisma/client";
 import {
@@ -514,5 +515,35 @@ export async function getPurchaseLookups() {
 export async function fetchSupplierLedger(supplierId: string) {
   return getVendorLedger(supplierId);
 }
+
+export async function deleteSupplier(id: string, userId: string) {
+  const db = await getDb();
+
+  const supplier = await db.supplier.findUnique({ where: { id } });
+  if (!supplier) throw new Error("Supplier not found");
+
+  const poCount = await db.purchaseOrder.count({ where: { supplierId: id } });
+  if (poCount > 0) {
+    throw new Error(`Cannot delete. This supplier has ${poCount} purchase orders. Deactivate instead?`);
+  }
+
+  return db.$transaction(async (tx) => {
+    const deleted = await tx.supplier.delete({ where: { id } });
+
+    await tx.auditLog.create({
+      data: {
+        userId,
+        action: "DELETE",
+        module: "SUPPLIER",
+        recordId: id,
+        oldValues: supplier as any,
+      },
+    });
+
+    revalidatePath("/purchase");
+    return deleted;
+  });
+}
+
 
 

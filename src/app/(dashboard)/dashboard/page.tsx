@@ -53,7 +53,7 @@ export default async function DashboardPage() {
   ]);
 
   return (
-    <div className="space-y-8 animate-fade-in pb-10">
+    <div className="space-y-8 animate-fade-in pb-10 font-sans">
       <PageHeader
         title="Executive Control Panel"
         description="Real-time operations tracking, multi-channel revenues, material costing margins, and live secure vaults."

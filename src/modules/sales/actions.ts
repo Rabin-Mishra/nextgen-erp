@@ -2,6 +2,7 @@
 
 import { getCurrentUser } from "@/auth/session";
 import { getDb } from "@/lib/db";
+import { revalidatePath } from "next/cache";
 import Decimal from "decimal.js";
 import type { InvoiceStatus, InvoiceType, PaymentMethod, PaymentMode } from "@/generated/prisma/client";
 import {
@@ -652,4 +653,35 @@ export async function fetchUnpaidInvoicesAction(customerId: string) {
     (a, b) => new Date(b.invoiceDate).getTime() - new Date(a.invoiceDate).getTime()
   );
 }
+
+export async function deleteCustomer(id: string, userId?: string) {
+  const createdBy = await resolveUserId(userId);
+  const db = await getDb();
+
+  const customer = await db.customer.findUnique({ where: { id } });
+  if (!customer) throw new Error("Customer not found");
+
+  const invoicesCount = await db.salesInvoice.count({ where: { customerId: id } });
+  if (invoicesCount > 0) {
+    throw new Error(`Cannot delete. This customer has ${invoicesCount} invoices on record. Deactivate instead?`);
+  }
+
+  return db.$transaction(async (tx) => {
+    const deleted = await tx.customer.delete({ where: { id } });
+
+    await tx.auditLog.create({
+      data: {
+        userId: createdBy,
+        action: "DELETE",
+        module: "CUSTOMER",
+        recordId: id,
+        oldValues: customer as any,
+      },
+    });
+
+    revalidatePath("/sales");
+    return deleted;
+  });
+}
+
 

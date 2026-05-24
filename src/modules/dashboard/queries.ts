@@ -136,7 +136,6 @@ export async function getRecentInvoices(limit = 5) {
 }
 
 export async function getCashSummary(date: string) {
-  // Leverage the robust, balanced Cash Book query from Stage 7
   return getCashBookSummary(date);
 }
 
@@ -160,7 +159,7 @@ export async function getLowStockAlerts(limit = 5) {
       };
     })
     .filter(item => item.stock <= item.reorderAt)
-    .sort((a, b) => a.stock - b.stock) // Prioritize lowest stock first
+    .sort((a, b) => a.stock - b.stock)
     .slice(0, limit);
 
   return alerts;
@@ -170,7 +169,6 @@ export async function getPendingVendorPayments(limit = 5) {
   const db = await getDb();
   const today = new Date();
 
-  // Query purchase orders with outstanding balances that are ordered or received
   const orders = await db.purchaseOrder.findMany({
     where: {
       status: { in: ["ORDERED", "PARTIAL", "RECEIVED"] }
@@ -199,7 +197,7 @@ export async function getPendingVendorPayments(limit = 5) {
       };
     })
     .filter(o => Number(o.amountDue) > 0)
-    .sort((a, b) => b.daysOverdue - a.daysOverdue) // Show oldest overdue first
+    .sort((a, b) => b.daysOverdue - a.daysOverdue)
     .slice(0, limit);
 
   return pending;
@@ -222,13 +220,11 @@ export async function getActiveProjectsSummary() {
   const summary = [];
 
   for (const prj of projects) {
-    // 1. Milestones Billed
     let totalBilled = new Decimal(0);
     for (const inv of prj.salesInvoices) {
       totalBilled = totalBilled.plus(new Decimal(inv.subtotal).minus(inv.discountAmount));
     }
 
-    // 2. Material consumption cost (PROJECT_ISSUE stock transactions)
     const issues = await db.stockTransaction.findMany({
       where: { referenceType: "PROJECT", referenceId: prj.id, type: "PROJECT_ISSUE" },
       select: { quantity: true, unitCost: true }
@@ -243,7 +239,6 @@ export async function getActiveProjectsSummary() {
     const budget = new Decimal(prj.budgetAmount || 1);
     const contract = new Decimal(prj.contractAmount || 1);
     
-    // Profit & margins
     const profit = totalBilled.minus(materialCost);
     const margin = totalBilled.greaterThan(0) ? profit.div(totalBilled).times(100).toNumber() : 0;
 
@@ -268,7 +263,6 @@ export async function getMonthlyRevenueByChannel(monthsCount = 6) {
   
   const results = [];
 
-  // Loop back for last N months chronologically
   for (let i = monthsCount - 1; i >= 0; i--) {
     const targetMonthDate = new Date(today.getFullYear(), today.getMonth() - i, 1);
     const m = targetMonthDate.getMonth() + 1;
@@ -314,7 +308,6 @@ export async function getDashboardSearchData() {
     db.purchaseOrder.findMany({ select: { id: true, poNumber: true, supplier: { select: { name: true } }, totalAmount: true, status: true }, orderBy: { orderDate: "desc" }, take: 100 }),
   ]);
 
-  // Fetch balances in parallel for customers and suppliers
   const customerBalances = await Promise.all(
     customers.map(async (c) => {
       const latest = await db.ledgerEntry.findFirst({

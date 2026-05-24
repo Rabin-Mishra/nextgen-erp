@@ -211,7 +211,7 @@ export async function getSalesStats(dateRange: SalesDateRange = {}) {
 
 export async function getCustomers(search?: string, type?: CustomerType, page = 1, pageSize = 25) {
   const db = await getDb();
-  const where: any = { isActive: true };
+  const where: any = {};
   if (type) where.customerType = type;
   if (search) {
     where.OR = [

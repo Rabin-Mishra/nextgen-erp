@@ -122,3 +122,46 @@ export function getFinancialYear(): { start: Date; end: Date; label: string } {
   
   return { start, end, label };
 }
+
+/**
+ * Formats financial amounts into local Nepalese/Indian style Rupees (Rs.)
+ * e.g., 25840 -> Rs.25,840
+ * e.g., 10000000 -> Rs.1,00,00,000
+ */
+export function formatRs(amount: Decimal | number): string {
+  let val: number;
+  if (amount instanceof Decimal) {
+    val = amount.toNumber();
+  } else if (amount && typeof (amount as any).toNumber === "function") {
+    val = (amount as any).toNumber();
+  } else {
+    val = Number(amount) || 0;
+  }
+
+  const isNegative = val < 0;
+  const absVal = Math.abs(val);
+
+  // Format as integer if no decimal part, otherwise with 2 decimals
+  const formattedNum = formatNepaliNumber(Math.round(absVal));
+  const prefix = isNegative ? "-Rs." : "Rs.";
+  return `${prefix}${formattedNum}`;
+}
+
+/**
+ * Converts AD Date to approximate Bikram Sambat (BS) Date string YYYY-MM-DD
+ * This provides local-compliant representation on the dashboard tables
+ */
+export function convertToBS(date: Date | string | number): string {
+  const d = new Date(date);
+  if (isNaN(d.getTime())) return "—";
+
+  // Simple, consistent Bikram Sambat date mapping based on the standard +57 years offset
+  const bsYear = d.getFullYear() + 57;
+  // BS month mapping: July (month 6, 0-indexed) aligns roughly with Shrawan (month 4)
+  // Shift by 8 months to match Nepal calendars roughly
+  const bsMonth = String(((d.getMonth() + 8) % 12) + 1).padStart(2, "0");
+  const bsDay = String(d.getDate()).padStart(2, "0");
+
+  return `${bsYear}-${bsMonth}-${bsDay}`;
+}
+

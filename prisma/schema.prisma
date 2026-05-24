@@ -139,6 +139,7 @@ model User {
   id           String    @id @default(cuid())
   name         String
   email        String    @unique
+  phone        String?   @map("phone")
   passwordHash String    @map("password_hash")
   role         Role      @default(VIEWER)
   isActive     Boolean   @default(true) @map("is_active")
@@ -147,14 +148,15 @@ model User {
   updatedAt    DateTime  @updatedAt @map("updated_at")
 
   // Relations — user as creator of various records
-  purchaseOrders    PurchaseOrder[]
-  salesInvoices     SalesInvoice[]
-  projects          Project[]
-  payments          Payment[]
-  ledgerEntries     LedgerEntry[]
-  cashBookEntries   CashBookEntry[]
-  stockTransactions StockTransaction[]
-  auditLogs         AuditLog[]
+  purchaseOrders       PurchaseOrder[]
+  salesInvoices        SalesInvoice[]
+  projects             Project[]
+  payments             Payment[]
+  ledgerEntries        LedgerEntry[]
+  cashBookEntries      CashBookEntry[]
+  stockTransactions    StockTransaction[]
+  auditLogs            AuditLog[]
+  passwordResetTokens  PasswordResetToken[]
 
   @@index([email])
   @@index([role])
@@ -769,4 +771,27 @@ model AuditLog {
   @@index([userId, module]) /// User activity per module
   @@index([createdAt])
   @@map("audit_logs")
+}
+
+// ============================================================================
+// 24. PASSWORD RESET TOKEN
+// ============================================================================
+
+/// Stores hashed OTP for forgot-password flow. Single-use, expires in 10 min.
+model PasswordResetToken {
+  id         String   @id @default(cuid())
+  userId     String   @map("user_id")
+  token      String?  @unique  /// Secure reset token (set after OTP verification)
+  otpHash    String   @map("otp_hash")
+  attempts   Int      @default(0)  /// Wrong OTP attempt counter (max 5)
+  expiresAt  DateTime @map("expires_at")
+  used       Boolean  @default(false)
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("password_reset_tokens")
 }

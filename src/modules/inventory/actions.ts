@@ -1,9 +1,23 @@
+"use server";
+
 import { StockTransactionType } from "../../generated/prisma/client";
 import Decimal from "decimal.js";
 import { getDb } from "@/lib/db";
-import { inventoryItemSchema, createInventoryItemSchema, adjustInventoryQuantitySchema, type CreateInventoryItemInput } from "./types";
+import {
+  inventoryItemSchema,
+  createInventoryItemSchema,
+  adjustInventoryQuantitySchema,
+  type CreateInventoryItemInput,
+  createCategorySchema,
+  updateCategorySchema,
+  createBrandSchema,
+  updateBrandSchema,
+} from "./types";
 import { needsReorder } from "./utils";
 import { fetchInventoryAlerts } from "./queries";
+import { revalidatePath } from "next/cache";
+import { getCurrentUser } from "@/auth/session";
+
 
 export async function createInventoryItem(data: CreateInventoryItemInput, userId: string) {
   const parsed = createInventoryItemSchema.parse(data);
@@ -179,3 +193,228 @@ export async function adjustInventoryQuantity(stockId: string, adjustment: numbe
 export async function getInventoryAlerts() {
   return fetchInventoryAlerts();
 }
+
+// ============================================================================
+// CATEGORY ACTIONS
+// ============================================================================
+
+export async function createCategory(data: any) {
+  const parsed = createCategorySchema.parse(data);
+  const db = await getDb();
+  const user = await getCurrentUser();
+  const userId = user?.id || "system";
+
+  // Check unique name
+  const existing = await db.category.findUnique({ where: { name: parsed.name } });
+  if (existing) {
+    throw new Error(`Category with name "${parsed.name}" already exists.`);
+  }
+
+  const category = await db.category.create({
+    data: {
+      name: parsed.name,
+      description: parsed.description,
+      isActive: true,
+    },
+  });
+
+  await db.auditLog.create({
+    data: {
+      userId,
+      action: "CREATE",
+      module: "INVENTORY_CATEGORY",
+      recordId: category.id,
+      newValues: category as any,
+    },
+  });
+
+  revalidatePath("/inventory");
+  return category;
+}
+
+export async function updateCategory(id: string, data: any) {
+  const parsed = updateCategorySchema.parse(data);
+  const db = await getDb();
+  const user = await getCurrentUser();
+  const userId = user?.id || "system";
+
+  const existing = await db.category.findUnique({ where: { id } });
+  if (!existing) {
+    throw new Error("Category not found");
+  }
+
+  // Check unique name if name is changing
+  if (parsed.name && parsed.name !== existing.name) {
+    const duplicate = await db.category.findUnique({ where: { name: parsed.name } });
+    if (duplicate) {
+      throw new Error(`Category with name "${parsed.name}" already exists.`);
+    }
+  }
+
+  const updated = await db.category.update({
+    where: { id },
+    data: {
+      name: parsed.name ?? existing.name,
+      description: parsed.description !== undefined ? parsed.description : existing.description,
+      isActive: parsed.isActive ?? existing.isActive,
+    },
+  });
+
+  await db.auditLog.create({
+    data: {
+      userId,
+      action: "UPDATE",
+      module: "INVENTORY_CATEGORY",
+      recordId: id,
+      oldValues: existing as any,
+      newValues: updated as any,
+    },
+  });
+
+  revalidatePath("/inventory");
+  return updated;
+}
+
+export async function deleteCategory(id: string) {
+  const db = await getDb();
+  const user = await getCurrentUser();
+  const userId = user?.id || "system";
+
+  const category = await db.category.findUnique({ where: { id } });
+  if (!category) {
+    throw new Error("Category not found");
+  }
+
+  const productsCount = await db.product.count({ where: { categoryId: id } });
+  if (productsCount > 0) {
+    throw new Error(`Cannot delete. ${productsCount} products are assigned to this category.`);
+  }
+
+  const deleted = await db.category.delete({ where: { id } });
+
+  await db.auditLog.create({
+    data: {
+      userId,
+      action: "DELETE",
+      module: "INVENTORY_CATEGORY",
+      recordId: id,
+      oldValues: category as any,
+    },
+  });
+
+  revalidatePath("/inventory");
+  return deleted;
+}
+
+// ============================================================================
+// BRAND ACTIONS
+// ============================================================================
+
+export async function createBrand(data: any) {
+  const parsed = createBrandSchema.parse(data);
+  const db = await getDb();
+  const user = await getCurrentUser();
+  const userId = user?.id || "system";
+
+  // Check unique name
+  const existing = await db.brand.findUnique({ where: { name: parsed.name } });
+  if (existing) {
+    throw new Error(`Brand with name "${parsed.name}" already exists.`);
+  }
+
+  const brand = await db.brand.create({
+    data: {
+      name: parsed.name,
+      description: parsed.description,
+      isActive: true,
+    },
+  });
+
+  await db.auditLog.create({
+    data: {
+      userId,
+      action: "CREATE",
+      module: "INVENTORY_BRAND",
+      recordId: brand.id,
+      newValues: brand as any,
+    },
+  });
+
+  revalidatePath("/inventory");
+  return brand;
+}
+
+export async function updateBrand(id: string, data: any) {
+  const parsed = updateBrandSchema.parse(data);
+  const db = await getDb();
+  const user = await getCurrentUser();
+  const userId = user?.id || "system";
+
+  const existing = await db.brand.findUnique({ where: { id } });
+  if (!existing) {
+    throw new Error("Brand not found");
+  }
+
+  // Check unique name if name is changing
+  if (parsed.name && parsed.name !== existing.name) {
+    const duplicate = await db.brand.findUnique({ where: { name: parsed.name } });
+    if (duplicate) {
+      throw new Error(`Brand with name "${parsed.name}" already exists.`);
+    }
+  }
+
+  const updated = await db.brand.update({
+    where: { id },
+    data: {
+      name: parsed.name ?? existing.name,
+      description: parsed.description !== undefined ? parsed.description : existing.description,
+      isActive: parsed.isActive ?? existing.isActive,
+    },
+  });
+
+  await db.auditLog.create({
+    data: {
+      userId,
+      action: "UPDATE",
+      module: "INVENTORY_BRAND",
+      recordId: id,
+      oldValues: existing as any,
+      newValues: updated as any,
+    },
+  });
+
+  revalidatePath("/inventory");
+  return updated;
+}
+
+export async function deleteBrand(id: string) {
+  const db = await getDb();
+  const user = await getCurrentUser();
+  const userId = user?.id || "system";
+
+  const brand = await db.brand.findUnique({ where: { id } });
+  if (!brand) {
+    throw new Error("Brand not found");
+  }
+
+  const productsCount = await db.product.count({ where: { brandId: id } });
+  if (productsCount > 0) {
+    throw new Error(`Cannot delete. ${productsCount} products are assigned to this brand.`);
+  }
+
+  const deleted = await db.brand.delete({ where: { id } });
+
+  await db.auditLog.create({
+    data: {
+      userId,
+      action: "DELETE",
+      module: "INVENTORY_BRAND",
+      recordId: id,
+      oldValues: brand as any,
+    },
+  });
+
+  revalidatePath("/inventory");
+  return deleted;
+}
+

@@ -1,26 +1,51 @@
+import Link from "next/link";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { InventoryTable } from "@/components/inventory/InventoryTable";
-import { fetchInventoryAlerts, fetchInventoryItems, fetchStockSummary } from "@/modules/inventory/queries";
-import AddProductModal from '@/components/inventory/AddProductModal';
-import AdjustStockModal from '@/components/inventory/AdjustStockModal';
+import {
+  fetchInventoryAlerts,
+  fetchInventoryItems,
+  fetchStockSummary,
+  fetchCategories,
+  fetchBrands,
+} from "@/modules/inventory/queries";
+import AddProductModal from "@/components/inventory/AddProductModal";
+import AdjustStockModal from "@/components/inventory/AdjustStockModal";
+import CategoriesTab from "@/components/inventory/CategoriesTab";
+import BrandsTab from "@/components/inventory/BrandsTab";
 
-export default async function InventoryPage() {
-  const [itemsResp, summary, alerts] = await Promise.all([
+type InventoryPageProps = {
+  searchParams?: Promise<{ tab?: string }>;
+};
+
+export default async function InventoryPage({ searchParams }: InventoryPageProps) {
+  const params = await searchParams;
+  const tab = params?.tab ?? "stock";
+
+  const [itemsResp, summary, alerts, categories, brands] = await Promise.all([
     fetchInventoryItems(),
     fetchStockSummary(),
     fetchInventoryAlerts(),
+    fetchCategories(),
+    fetchBrands(),
   ]);
   const items = itemsResp?.data ?? [];
+
+  const tabs = [
+    { id: "stock", label: "Stock Levels" },
+    { id: "categories", label: "Categories" },
+    { id: "brands", label: "Brands" },
+  ];
 
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Inventory Stock Level"
+        title="Inventory Operations"
         description="Monitor product levels, brands, categories, and warehouse stocks."
       />
 
+      {/* Summary Cards */}
       <div className="grid gap-4 md:grid-cols-3">
         <Card className="border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950">
           <CardHeader>
@@ -57,33 +82,80 @@ export default async function InventoryPage() {
         </Card>
       </div>
 
-      {alerts.length > 0 ? (
-        <section className="rounded-3xl border border-orange-200 bg-orange-50 p-6 dark:border-orange-900/40 dark:bg-orange-950/60">
-          <h2 className="text-lg font-semibold text-orange-900 dark:text-orange-100">Low stock alerts</h2>
-          <p className="mt-2 text-sm text-orange-700 dark:text-orange-300">
-            {alerts.length} item{alerts.length === 1 ? "" : "s"} are at or below their reorder level.
-          </p>
-        </section>
-      ) : (
-        <section className="rounded-3xl border border-zinc-200 bg-white p-6 text-center dark:border-zinc-800 dark:bg-zinc-950">
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">No reorder alerts at the moment.</p>
+      {/* Tab Navigation */}
+      <nav className="flex gap-2 border-b border-zinc-200 pb-2 dark:border-zinc-800">
+        {tabs.map((item) => (
+          <Link
+            key={item.id}
+            href={`/inventory?tab=${item.id}`}
+            className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+              tab === item.id
+                ? "bg-primary text-primary-foreground font-semibold shadow-sm"
+                : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-900"
+            }`}
+          >
+            {item.label}
+          </Link>
+        ))}
+      </nav>
+
+      {/* Conditional Rendering of Tabs */}
+      {tab === "stock" && (
+        <>
+          {alerts.length > 0 ? (
+            <section className="rounded-3xl border border-orange-200 bg-orange-50 p-6 dark:border-orange-900/40 dark:bg-orange-950/60 animate-fade-in">
+              <h2 className="text-lg font-semibold text-orange-900 dark:text-orange-100">Low stock alerts</h2>
+              <p className="mt-2 text-sm text-orange-700 dark:text-orange-300">
+                {alerts.length} item{alerts.length === 1 ? "" : "s"} are at or below their reorder level.
+              </p>
+            </section>
+          ) : (
+            <section className="rounded-3xl border border-zinc-200 bg-white p-6 text-center dark:border-zinc-800 dark:bg-zinc-950">
+              <p className="text-sm text-zinc-500 dark:text-zinc-400">No reorder alerts at the moment.</p>
+            </section>
+          )}
+
+          <section className="rounded-3xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-950 animate-fade-in">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-4">
+              <div>
+                <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">Inventory Snapshot</h2>
+                <p className="text-sm text-zinc-500 dark:text-zinc-400">Review stock levels and warehouse allocations.</p>
+              </div>
+              <div className="text-sm text-zinc-500 dark:text-zinc-400">{items.length} inventory rows</div>
+            </div>
+            <div className="flex items-center justify-end gap-2 mb-4">
+              <AddProductModal />
+              <AdjustStockModal />
+            </div>
+            <InventoryTable items={items} />
+          </section>
+        </>
+      )}
+
+      {tab === "categories" && (
+        <section className="rounded-3xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-950 animate-fade-in">
+          <div className="mb-4">
+            <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">Product Categories</h2>
+            <p className="text-sm text-zinc-500 dark:text-zinc-400">
+              Manage inventory classification categories and product tracking buckets.
+            </p>
+          </div>
+          <CategoriesTab initialCategories={categories as any} />
         </section>
       )}
 
-      <section className="rounded-3xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-950">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-4">
-          <div>
-            <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">Inventory Snapshot</h2>
-            <p className="text-sm text-zinc-500 dark:text-zinc-400">Review stock levels and warehouse allocations.</p>
+      {tab === "brands" && (
+        <section className="rounded-3xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-950 animate-fade-in">
+          <div className="mb-4">
+            <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">Product Brands</h2>
+            <p className="text-sm text-zinc-500 dark:text-zinc-400">
+              Manage manufacturers, paint brands, and supply brands in stock.
+            </p>
           </div>
-          <div className="text-sm text-zinc-500 dark:text-zinc-400">{items.length} inventory rows</div>
-        </div>
-        <div className="flex items-center justify-end gap-2 mb-4">
-          <AddProductModal />
-          <AdjustStockModal />
-        </div>
-        <InventoryTable items={items} />
-      </section>
+          <BrandsTab initialBrands={brands as any} />
+        </section>
+      )}
     </div>
   );
 }
+

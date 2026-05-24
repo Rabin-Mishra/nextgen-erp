@@ -34,6 +34,7 @@ export function Header({
   lowStockCount = 3, // Defaults for visual presentation
   pendingPaymentsCount = 5,
 }: HeaderProps) {
+  const [open, setOpen] = React.useState(false);
   const getFormattedDate = () => formatDate(new Date());
 
   const totalNotifications = lowStockCount + pendingPaymentsCount;
@@ -42,18 +43,18 @@ export function Header({
     <header className="flex h-16 shrink-0 items-center justify-between border-b border-zinc-100 bg-white px-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
       {/* Mobile Nav Drawer & Page Title */}
       <div className="flex items-center gap-4">
-        <Sheet>
+        <Sheet open={open} onOpenChange={setOpen}>
           <SheetTrigger asChild>
             <Button
               variant="ghost"
               size="icon"
-              className="lg:hidden h-10 w-10 text-zinc-500 hover:bg-zinc-100 rounded-xl dark:text-zinc-400 dark:hover:bg-zinc-900"
+              className="md:hidden h-10 w-10 text-zinc-500 hover:bg-zinc-100 rounded-xl dark:text-zinc-400 dark:hover:bg-zinc-900"
             >
               <Menu className="h-5 w-5" />
             </Button>
           </SheetTrigger>
           <SheetContent side="left" className="p-0 w-64 border-r-0">
-            <Sidebar user={user} />
+            <Sidebar user={user} onMobileClose={() => setOpen(false)} isMobileDrawer={true} />
           </SheetContent>
         </Sheet>
         

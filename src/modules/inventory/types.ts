@@ -79,3 +79,30 @@ export const stockTransactionSchema = z.object({
 });
 
 export type StockTransactionSchema = z.infer<typeof stockTransactionSchema>;
+
+export const createCategorySchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  description: z.string().optional().nullable(),
+});
+export type CreateCategoryInput = z.infer<typeof createCategorySchema>;
+
+export const updateCategorySchema = z.object({
+  name: z.string().min(1, "Name is required").optional(),
+  description: z.string().optional().nullable(),
+  isActive: z.boolean().optional(),
+});
+export type UpdateCategoryInput = z.infer<typeof updateCategorySchema>;
+
+export const createBrandSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  description: z.string().optional().nullable(),
+});
+export type CreateBrandInput = z.infer<typeof createBrandSchema>;
+
+export const updateBrandSchema = z.object({
+  name: z.string().min(1, "Name is required").optional(),
+  description: z.string().optional().nullable(),
+  isActive: z.boolean().optional(),
+});
+export type UpdateBrandInput = z.infer<typeof updateBrandSchema>;
+

@@ -119,4 +119,29 @@ export async function fetchInventoryAlerts() {
   return alerts;
 }
 
+export async function fetchCategories() {
+  const db = await getDb();
+  return db.category.findMany({
+    include: {
+      _count: {
+        select: { products: true },
+      },
+    },
+    orderBy: { name: "asc" },
+  });
+}
+
+export async function fetchBrands() {
+  const db = await getDb();
+  return db.brand.findMany({
+    include: {
+      _count: {
+        select: { products: true },
+      },
+    },
+    orderBy: { name: "asc" },
+  });
+}
+
 export default fetchInventoryItems;
+

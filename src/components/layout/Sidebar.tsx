@@ -20,10 +20,7 @@ import {
   Users,
   Settings,
   LogOut,
-  X,
-  Menu,
 } from "lucide-react";
-import { Sheet, SheetContent, SheetTrigger } from "../ui/sheet";
 import { Button } from "../ui/button";
 
 interface SidebarProps {
@@ -32,15 +29,15 @@ interface SidebarProps {
     email?: string | null;
     role: Role;
   };
-  mobileOpen?: boolean;
   onMobileClose?: () => void;
+  isMobileDrawer?: boolean;
 }
 
 interface NavItem {
   label: string;
   href: string;
   icon: React.ComponentType<any>;
-  module: Module | "settings"; // Settings module doesn't map directly to db but we can show it to everyone
+  module: Module | "settings";
 }
 
 const navItems: NavItem[] = [
@@ -56,7 +53,7 @@ const navItems: NavItem[] = [
   { label: "Settings", href: "/settings", icon: Settings, module: "settings" },
 ];
 
-export function Sidebar({ user }: SidebarProps) {
+export function Sidebar({ user, onMobileClose, isMobileDrawer = false }: SidebarProps) {
   const pathname = usePathname();
 
   const filteredNavItems = navItems.filter((item) => {
@@ -64,22 +61,31 @@ export function Sidebar({ user }: SidebarProps) {
     return hasPermission(user.role, item.module, "view");
   });
 
-  const SidebarContent = () => (
+  const SidebarContent = ({ forceExpand = false }: { forceExpand?: boolean }) => (
     <div className="flex flex-col h-full bg-zinc-900 text-zinc-300 dark:bg-black border-r border-zinc-800">
       {/* Brand Header */}
-      <div className="flex items-center justify-between px-6 py-5 border-b border-zinc-800/60">
-        <Link href="/dashboard" className="flex flex-col">
-          <span className="text-md font-bold tracking-tight text-white uppercase">
+      <div className="flex items-center justify-between px-6 py-5 border-b border-zinc-800/60 shrink-0">
+        <Link href="/dashboard" className="flex flex-col w-full" onClick={onMobileClose}>
+          <span className={`text-md font-bold tracking-tight text-white uppercase truncate ${
+            forceExpand ? "inline text-left" : "hidden lg:inline text-left"
+          }`}>
             NextGen ERP
           </span>
-          <span className="text-xs text-zinc-500 font-medium">
+          {!forceExpand && (
+            <span className="text-md font-bold tracking-tight text-white uppercase inline lg:hidden text-center">
+              NG
+            </span>
+          )}
+          <span className={`text-xs text-zinc-500 font-medium truncate mt-0.5 ${
+            forceExpand ? "inline text-left" : "hidden lg:inline text-left"
+          }`}>
             Interior & Waterproofing
           </span>
         </Link>
       </div>
 
       {/* Nav List */}
-      <nav className="flex-1 px-4 py-6 space-y-1.5 overflow-y-auto">
+      <nav className="flex-1 px-3 py-6 space-y-1.5 overflow-y-auto">
         {filteredNavItems.map((item) => {
           const isActive = pathname.startsWith(item.href);
           const Icon = item.icon;
@@ -87,23 +93,34 @@ export function Sidebar({ user }: SidebarProps) {
             <Link
               key={item.href}
               href={item.href}
-              className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 ${
+              onClick={onMobileClose}
+              title={item.label} // tooltip assistance
+              className={`flex items-center gap-3 p-3 rounded-xl text-sm font-semibold transition-all duration-200 ${
+                forceExpand
+                  ? "justify-start px-4 py-3"
+                  : "justify-center lg:justify-start lg:px-4 lg:py-3"
+              } ${
                 isActive
                   ? "bg-primary text-white shadow-md shadow-primary/20"
                   : "hover:bg-zinc-800/50 hover:text-white"
               }`}
             >
-              <Icon className="h-4 w-4" />
-              {item.label}
+              <Icon className="h-4 w-4 shrink-0" />
+              <span className={forceExpand ? "inline" : "hidden lg:inline"}>
+                {item.label}
+              </span>
             </Link>
           );
         })}
       </nav>
 
-      {/* User Session Details at bottom */}
-      <div className="p-4 border-t border-zinc-800/60 bg-zinc-950/20">
-        <div className="flex flex-col gap-3 px-3 py-2.5 rounded-2xl bg-zinc-950/40 border border-zinc-800/40">
-          <div className="flex flex-col">
+      {/* User Details box */}
+      <div className="p-3 border-t border-zinc-800/60 bg-zinc-950/20 shrink-0">
+        <div className={`flex flex-col rounded-2xl bg-zinc-950/40 border border-zinc-800/40 ${
+          forceExpand ? "gap-3 px-3 py-2.5" : "gap-3 lg:px-3 lg:py-2.5 p-1"
+        }`}>
+          {/* Expanded User details */}
+          <div className={`flex-col ${forceExpand ? "flex" : "hidden lg:flex"}`}>
             <p className="text-sm font-semibold text-white truncate">
               {user.name || "ERP Staff"}
             </p>
@@ -116,14 +133,34 @@ export function Sidebar({ user }: SidebarProps) {
               </Badge>
             </div>
           </div>
-          
+
+          {/* Collapsed Avatar/Initials */}
+          {!forceExpand && (
+            <div className="flex lg:hidden justify-center my-0.5">
+              <div
+                className="h-8 w-8 rounded-full bg-zinc-800 text-white flex items-center justify-center text-xs font-bold shrink-0 border border-zinc-700"
+                title={`${user.name || "ERP Staff"} (${ROLE_LABELS[user.role]})`}
+              >
+                {user.name ? user.name.substring(0, 2).toUpperCase() : "US"}
+              </div>
+            </div>
+          )}
+
+          {/* Sign Out Button */}
           <Button
             variant="ghost"
             onClick={() => signOut({ callbackUrl: "/login" })}
-            className="w-full justify-start text-zinc-400 hover:text-white hover:bg-zinc-800/40 gap-2 h-9 p-0 px-3 rounded-xl border border-zinc-800/40 mt-1"
+            className={`w-full text-zinc-400 hover:text-white hover:bg-zinc-800/40 gap-2 h-9 p-0 border border-zinc-800/40 ${
+              forceExpand
+                ? "justify-start px-3"
+                : "justify-center lg:justify-start lg:px-3"
+            }`}
+            title="Sign Out"
           >
-            <LogOut className="h-4 w-4 text-zinc-400" />
-            <span className="text-xs font-semibold">Sign Out</span>
+            <LogOut className="h-4 w-4 text-zinc-400 shrink-0" />
+            <span className={`text-xs font-semibold ${forceExpand ? "inline" : "hidden lg:inline"}`}>
+              Sign Out
+            </span>
           </Button>
         </div>
       </div>
@@ -132,15 +169,19 @@ export function Sidebar({ user }: SidebarProps) {
 
   return (
     <>
-      {/* Desktop Sidebar (Permanent) */}
-      <div className="hidden lg:flex flex-col w-64 h-full shrink-0">
-        <SidebarContent />
-      </div>
+      {/* Desktop Sidebar (Permanent: hidden on mobile, collapsed on md, expanded on lg) */}
+      {!isMobileDrawer && (
+        <div className="hidden md:flex flex-col h-full shrink-0 transition-all duration-300 w-20 lg:w-64">
+          <SidebarContent forceExpand={false} />
+        </div>
+      )}
 
-      {/* Mobile Drawer Trigger (Only visible on mobile headers) */}
-      <div className="lg:hidden">
-        {/* Rendered inside Dashboard layout via sheet trigger */}
-      </div>
+      {/* Mobile Drawer Content (Forced expanded within Sheet container) */}
+      {isMobileDrawer && (
+        <div className="flex flex-col w-full h-full">
+          <SidebarContent forceExpand={true} />
+        </div>
+      )}
     </>
   );
 }

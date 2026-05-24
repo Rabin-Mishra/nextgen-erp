@@ -8,7 +8,7 @@ import { Label } from "../ui/label";
 import { Role } from "../../lib/constants";
 import { createUserAction } from "../../modules/users/actions";
 import { toast } from "sonner";
-import { Lock, Mail, User, Shield, Eye, EyeOff, Loader2 } from "lucide-react";
+import { Lock, Mail, User, Shield, Eye, EyeOff, Loader2, Phone } from "lucide-react";
 
 interface AddUserModalProps {
   isOpen: boolean;
@@ -19,6 +19,7 @@ interface AddUserModalProps {
 export function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModalProps) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState<Role>("VIEWER");
   const [isActive, setIsActive] = useState(true);
@@ -75,6 +76,11 @@ export function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModalProps) 
       return;
     }
 
+    if (phone && !/^9\d{9}$/.test(phone.replace(/[\s\-]/g, ""))) {
+      toast.error("Phone number must be 10 digits starting with 9 (Nepal mobile format).");
+      return;
+    }
+
     if (password && password.length < 8) {
       toast.error("Password must be at least 8 characters long.");
       return;
@@ -85,6 +91,7 @@ export function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModalProps) 
       await createUserAction({
         name,
         email,
+        phone: phone.replace(/[\s\-]/g, "") || undefined,
         password: password || undefined,
         role,
         isActive,
@@ -103,6 +110,7 @@ export function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModalProps) 
   const handleClose = () => {
     setName("");
     setEmail("");
+    setPhone("");
     setPassword("");
     setRole("VIEWER");
     setIsActive(true);
@@ -179,6 +187,27 @@ export function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModalProps) 
                 disabled={loading}
               />
             </div>
+            <p className="text-[10px] text-zinc-400 font-medium">This email will be used for password recovery</p>
+          </div>
+
+          {/* Phone Number */}
+          <div className="space-y-1.5">
+            <Label htmlFor="phone" className="text-xs font-bold text-zinc-500 uppercase tracking-wide">
+              Phone Number
+            </Label>
+            <div className="relative">
+              <Phone className="absolute left-3 top-2.5 h-4.5 w-4.5 text-zinc-400" />
+              <Input
+                id="phone"
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="98XXXXXXXX"
+                className="pl-10 h-10 rounded-xl border-zinc-200 dark:border-zinc-800"
+                disabled={loading}
+              />
+            </div>
+            <p className="text-[10px] text-zinc-400 font-medium">Optional. Nepal mobile: 10 digits starting with 9</p>
           </div>
 
           {/* Security Role Selection */}

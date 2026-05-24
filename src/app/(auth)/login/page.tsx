@@ -73,6 +73,15 @@ export default function LoginPage() {
             />
           </div>
 
+          <div className="flex justify-end -mt-2">
+            <a
+              href="/forgot-password"
+              className="text-xs text-zinc-500 hover:text-emerald-400 hover:underline transition-colors"
+            >
+              Forgot Password?
+            </a>
+          </div>
+
           {errorMessage && (
             <div className="flex items-start gap-2 rounded-2xl border border-rose-500/20 bg-rose-500/10 p-3 text-sm text-rose-200">
               <AlertTriangle className="h-4 w-4 shrink-0 text-rose-400" />
