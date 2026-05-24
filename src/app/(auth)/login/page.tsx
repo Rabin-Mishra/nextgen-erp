@@ -7,6 +7,7 @@ import { AlertTriangle } from "lucide-react";
 import { Button } from "../../../components/ui/button";
 import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
+import Link from "next/link";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -74,12 +75,12 @@ export default function LoginPage() {
           </div>
 
           <div className="flex justify-end -mt-2">
-            <a
+            <Link
               href="/forgot-password"
               className="text-xs text-zinc-500 hover:text-emerald-400 hover:underline transition-colors"
             >
               Forgot Password?
-            </a>
+            </Link>
           </div>
 
           {errorMessage && (

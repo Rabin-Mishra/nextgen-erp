@@ -30,11 +30,6 @@ export default auth((req) => {
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except for:
-     * - api/auth/ (auth endpoints)
-     * - static files (CSS, JS, images, favicon)
-     */
-    "/((?!api/auth|_next/static|_next/image|favicon.ico|next.svg|vercel.svg).*)",
+    "/((?!login|forgot-password|verify-otp|reset-password|api|_next|favicon.ico|next.svg|vercel.svg).*)",
   ],
 };
