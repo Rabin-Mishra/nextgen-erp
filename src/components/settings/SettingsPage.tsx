@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { PageHeader } from "../layout/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Input } from "../ui/input";
@@ -15,7 +15,9 @@ import {
   deleteWarehouseAction,
   createFiscalYearAction,
   toggleFiscalYearStatusAction,
-  exportAllDataAction
+  exportAllDataAction,
+  getBusinessSettingsAction,
+  saveBusinessSettingsAction
 } from "../../modules/settings/actions";
 import { SystemSettings, BusinessInfo, InvoiceSettings } from "../../lib/settings-store";
 import { toast } from "sonner";
@@ -74,6 +76,29 @@ export function SettingsPage({
   const [bizAddress, setBizAddress] = useState(initialSettings.businessInfo.address);
   const [bizPhone, setBizPhone] = useState(initialSettings.businessInfo.phone);
   const [bizEmail, setBizEmail] = useState(initialSettings.businessInfo.email || "");
+  const [bizOwner, setBizOwner] = useState("");
+
+  useEffect(() => {
+    async function loadSettings() {
+      try {
+        setLoading(true);
+        const settings = await getBusinessSettingsAction();
+        if (settings) {
+          if (settings.business_name) setBizName(settings.business_name);
+          if (settings.business_pan) setBizPan(settings.business_pan);
+          if (settings.business_address) setBizAddress(settings.business_address);
+          if (settings.business_phone) setBizPhone(settings.business_phone);
+          if (settings.business_email) setBizEmail(settings.business_email);
+          if (settings.business_owner) setBizOwner(settings.business_owner);
+        }
+      } catch (err: any) {
+        toast.error("Failed to load business settings.");
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadSettings();
+  }, []);
 
   // 2. Invoice Settings form states
   const [invoiceVat, setInvoiceVat] = useState(initialSettings.invoiceSettings.defaultVatRate);
@@ -106,14 +131,19 @@ export function SettingsPage({
     e.preventDefault();
     try {
       setLoading(true);
-      await saveBusinessInfoAction({
-        name: bizName,
-        pan: bizPan,
-        address: bizAddress,
-        phone: bizPhone,
-        email: bizEmail,
+      const res = await saveBusinessSettingsAction({
+        business_name: bizName,
+        business_pan: bizPan,
+        business_address: bizAddress,
+        business_phone: bizPhone,
+        business_email: bizEmail,
+        business_owner: bizOwner,
       });
-      toast.success("Business profile details successfully updated.");
+      if (res.success) {
+        toast.success("Business profile details successfully updated.");
+      } else {
+        toast.error(res.error || "Failed to update business settings.");
+      }
     } catch (err: any) {
       toast.error(err.message || "Failed to update business settings.");
     } finally {

@@ -930,3 +930,15 @@ model SalesReturnItem {
   @@map("sales_return_items")
 }
 
+model BusinessSettings {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       String   @db.Text
+  category    String   @default("general")
+  label       String
+  description String?
+  inputType   String   @default("text")
+  updatedAt   DateTime @updatedAt
+  @@map("business_settings")
+}
+

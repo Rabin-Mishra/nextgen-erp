@@ -4,6 +4,7 @@ import { getDb } from "../../lib/db";
 import { getCurrentUser } from "@/auth/session";
 import { getSystemSettings, saveSystemSettings, BusinessInfo, InvoiceSettings } from "../../lib/settings-store";
 import { revalidatePath } from "next/cache";
+import { getSettings, updateSettings } from '@/lib/settings';
 
 // Business Info Settings
 export async function saveBusinessInfoAction(data: BusinessInfo) {
@@ -451,4 +452,28 @@ export async function exportAllDataAction() {
   });
 
   return JSON.stringify(backupObject, null, 2);
+}
+
+export async function getBusinessSettingsAction(): Promise<Record<string, string>> {
+  return await getSettings()
+}
+
+export async function saveBusinessSettingsAction(
+  data: Record<string, string>
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const user = await getCurrentUser()
+    if (!user) {
+      return { success: false, error: 'Unauthorized' }
+    }
+    if (user.role !== 'SUPERADMIN' && user.role !== 'OWNER') {
+      return { success: false, error: 'Insufficient permissions' }
+    }
+    await updateSettings(data)
+    revalidatePath('/', 'layout')
+    return { success: true }
+  } catch (error: any) {
+    console.error("Error inside saveBusinessSettingsAction:", error)
+    return { success: false, error: error.message || 'Failed to save settings' }
+  }
 }

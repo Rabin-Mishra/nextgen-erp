@@ -16,6 +16,12 @@ async function main() {
   // 1. Clean existing records in reverse dependency order
   console.log("🧹 Cleaning old data...");
   await prisma.auditLog.deleteMany();
+  await prisma.expense.deleteMany();
+  await prisma.purchaseReturnItem.deleteMany();
+  await prisma.purchaseReturn.deleteMany();
+  await prisma.salesReturnItem.deleteMany();
+  await prisma.salesReturn.deleteMany();
+  await prisma.businessSettings.deleteMany();
   await prisma.depreciationEntry.deleteMany();
   await prisma.fixedAsset.deleteMany();
   await prisma.cashBookEntry.deleteMany();
@@ -989,7 +995,44 @@ async function main() {
     },
   });
 
+  await seedBusinessSettings();
+
   console.log("🏁 Database Seeding completed successfully!");
+}
+
+async function seedBusinessSettings() {
+  const settings = [
+    { key: 'business_name', value: 'NextGen Interior And WaterProofing', category: 'business', label: 'Business Name', inputType: 'text' },
+    { key: 'business_pan', value: '122782202', category: 'business', label: 'PAN Number', inputType: 'text' },
+    { key: 'business_phone', value: '9843146474', category: 'business', label: 'Phone Number', inputType: 'tel' },
+    { key: 'business_email', value: 'gauravchaulagain99@gmail.com', category: 'business', label: 'Business Email', inputType: 'email' },
+    { key: 'business_address', value: 'Gauradaha Nagarpalika-02, Jhapa, Nepal', category: 'business', label: 'Address', inputType: 'textarea' },
+    { key: 'business_owner', value: 'Nischal Timsina', category: 'business', label: 'Owner Name', inputType: 'text' },
+    { key: 'business_type', value: 'Construction Materials Distributor', category: 'business', label: 'Business Type', inputType: 'text' },
+    { key: 'invoice_prefix', value: 'INV', category: 'invoice', label: 'Invoice Prefix', inputType: 'text' },
+    { key: 'po_prefix', value: 'PO', category: 'invoice', label: 'PO Prefix', inputType: 'text' },
+    { key: 'vat_rate', value: '13', category: 'invoice', label: 'VAT Rate (%)', inputType: 'number' },
+    { key: 'invoice_terms', value: 'Thank you for your business!', category: 'invoice', label: 'Invoice Footer Terms', inputType: 'textarea' },
+    { key: 'invoice_color_retail', value: '#2563eb', category: 'invoice', label: 'Retail Invoice Color', inputType: 'color' },
+    { key: 'invoice_color_wholesale', value: '#16a34a', category: 'invoice', label: 'Wholesale Invoice Color', inputType: 'color' },
+    { key: 'invoice_color_project', value: '#9333ea', category: 'invoice', label: 'Project Invoice Color', inputType: 'color' },
+    { key: 'currency_symbol', value: 'NPR', category: 'regional', label: 'Currency Symbol', inputType: 'text' },
+    { key: 'currency_name', value: 'Nepali Rupee', category: 'regional', label: 'Currency Name', inputType: 'text' },
+    { key: 'date_primary', value: 'BS', category: 'regional', label: 'Primary Date Format', inputType: 'select' },
+    { key: 'low_stock_multiplier', value: '1', category: 'inventory', label: 'Low Stock Alert Multiplier', inputType: 'number' },
+    { key: 'high_stock_multiplier', value: '5', category: 'inventory', label: 'High Stock Alert Multiplier', inputType: 'number' },
+    { key: 'credit_limit_default', value: '100000', category: 'sales', label: 'Default Credit Limit (NPR)', inputType: 'number' },
+    { key: 'report_footer_text', value: 'NextGen Interior And WaterProofing — Confidential', category: 'reports', label: 'Report Footer Text', inputType: 'text' },
+  ];
+
+  for (const setting of settings) {
+    await prisma.businessSettings.upsert({
+      where: { key: setting.key },
+      update: {},
+      create: setting
+    });
+  }
+  console.log('Business settings seeded');
 }
 
 main()

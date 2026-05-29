@@ -1,6 +1,6 @@
 import { Document, Page, StyleSheet, Text, View, pdf } from "@react-pdf/renderer";
-import { INVOICE_COLORS } from "@/lib/constants";
 import type { SalesInvoiceSchema } from "@/modules/sales/types";
+import { getBusinessSettingsAction } from "@/modules/settings/actions";
 
 const styles = StyleSheet.create({
   page: {
@@ -87,16 +87,44 @@ function money(value: string | number) {
   return `NPR ${Number(value).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-export function InvoicePDF({ invoice }: { invoice: SalesInvoiceSchema }) {
+interface InvoicePDFProps {
+  invoice: SalesInvoiceSchema;
+  businessName: string;
+  pan: string;
+  phone: string;
+  address: string;
+  terms: string;
+  retailColor: string;
+  wholesaleColor: string;
+  projectColor: string;
+}
+
+export function InvoicePDF({
+  invoice,
+  businessName,
+  pan,
+  phone,
+  address,
+  terms,
+  retailColor,
+  wholesaleColor,
+  projectColor,
+}: InvoicePDFProps) {
+  const invoiceColors: Record<string, string> = {
+    RETAIL: retailColor,
+    WHOLESALE: wholesaleColor,
+    PROJECT: projectColor,
+  };
+
   return (
     <Document>
       <Page size="A4" style={styles.page}>
-        <View style={[styles.header, { backgroundColor: INVOICE_COLORS[invoice.invoiceType] }]}>
+        <View style={[styles.header, { backgroundColor: invoiceColors[invoice.invoiceType] || retailColor }]}>
           <View style={styles.between}>
             <View>
-              <Text style={styles.headerTitle}>NextGen Interior And WaterProofing</Text>
-              <Text>PAN: 122782202 | Phone: 9843146474</Text>
-              <Text>Gauradaha Nagarpalika-02, Jhapa</Text>
+              <Text style={styles.headerTitle}>{businessName}</Text>
+              <Text>PAN: {pan} | Phone: {phone}</Text>
+              <Text>{address}</Text>
             </View>
             <View>
               <Text>INVOICE</Text>
@@ -142,12 +170,47 @@ export function InvoicePDF({ invoice }: { invoice: SalesInvoiceSchema }) {
           <View style={styles.grandTotal}><Text>Total</Text><Text>{money(invoice.totalAmount)}</Text></View>
         </View>
 
-        <Text style={styles.footer}>Payment Method: {invoice.paymentMethod || "-"} | Thank you for your business.</Text>
+        <Text style={styles.footer}>Payment Method: {invoice.paymentMethod || "-"} | {terms}</Text>
       </Page>
     </Document>
   );
 }
 
+let settingsPromise: Promise<Record<string, string>> | null = null;
+
+async function getSetting(key: string, fallback: string): Promise<string> {
+  if (!settingsPromise) {
+    settingsPromise = getBusinessSettingsAction();
+  }
+  const settings = await settingsPromise;
+  return settings[key] ?? fallback;
+}
+
 export async function generateInvoicePDF(invoice: SalesInvoiceSchema) {
-  return pdf(<InvoicePDF invoice={invoice} />).toBlob();
+  // Reset cached promise so fresh settings are fetched upon every invocation
+  settingsPromise = null;
+
+  const businessName = await getSetting('business_name', 'NextGen Interior And WaterProofing');
+  const pan = await getSetting('business_pan', '122782202');
+  const phone = await getSetting('business_phone', '9843146474');
+  const address = await getSetting('business_address', 'Gauradaha Nagarpalika-02, Jhapa, Nepal');
+  const terms = await getSetting('invoice_terms', 'Thank you for your business!');
+
+  const retailColor = await getSetting('invoice_color_retail', '#2563eb');
+  const wholesaleColor = await getSetting('invoice_color_wholesale', '#16a34a');
+  const projectColor = await getSetting('invoice_color_project', '#9333ea');
+
+  return pdf(
+    <InvoicePDF
+      invoice={invoice}
+      businessName={businessName}
+      pan={pan}
+      phone={phone}
+      address={address}
+      terms={terms}
+      retailColor={retailColor}
+      wholesaleColor={wholesaleColor}
+      projectColor={projectColor}
+    />
+  ).toBlob();
 }
