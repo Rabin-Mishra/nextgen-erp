@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "../ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "../ui/dialog";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
@@ -161,12 +161,9 @@ export function EditUserModal({
             <User className="h-5 w-5 text-primary" />
             Edit User Credentials
           </DialogTitle>
-          <p className="text-xs text-zinc-400 mt-1">
-            Update profile info and security settings for{" "}
-            <span className="font-mono text-[11px] font-semibold bg-zinc-100 dark:bg-zinc-900 px-1 py-0.5 rounded text-zinc-600 dark:text-zinc-400">
-              {userToEdit.email}
-            </span>
-          </p>
+          <DialogDescription className="sr-only">
+            Edit staff user credentials, role, and account status
+          </DialogDescription>
         </DialogHeader>
 
         {/* ── Self-edit warning ─────────────────────────────────── */}

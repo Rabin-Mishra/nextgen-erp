@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack -p 3000",
+    "dev": "next dev --turbopack",
     "build": "prisma generate && next build",
     "start": "next start",
     "lint": "eslint",
@@ -11,7 +11,13 @@
     "db:push": "prisma db push",
     "db:seed": "npx -y tsx prisma/seed.ts",
     "db:studio": "prisma studio",
-    "db:generate": "prisma generate"
+    "db:generate": "prisma generate",
+    "db:reset": "npx ts-node --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\"}\" scripts/reset-db.ts",
+    "docker:start": "bash scripts/docker-start.sh",
+    "docker:stop": "bash scripts/docker-stop.sh",
+    "setup": "bash scripts/setup.sh",
+    "deploy": "bash scripts/deploy.sh",
+    "backup": "bash scripts/backup.sh"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.8.0",

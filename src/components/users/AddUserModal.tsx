@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "../ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "../ui/dialog";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
@@ -144,9 +144,9 @@ export function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModalProps) 
             <User className="h-5 w-5 text-primary" />
             Invite Staff Member
           </DialogTitle>
-          <p className="text-xs text-zinc-400 mt-1">
-            Provision authorized credentials to access operations console.
-          </p>
+          <DialogDescription className="sr-only">
+            Add a new staff user account with role and permissions
+          </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4 pt-4">

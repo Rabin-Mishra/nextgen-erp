@@ -44,9 +44,41 @@ async function getLatestSupplierBalance(tx: any, supplierId: string) {
   return latest ? toDecimal(latest.runningBalance) : new Decimal(0);
 }
 
+async function resolveActiveUserId(db: any, userId: string): Promise<string> {
+  if (!userId) {
+    const fallbackUser = await db.user.findFirst({
+      where: { isActive: true },
+      select: { id: true }
+    });
+    if (fallbackUser) return fallbackUser.id;
+    throw new Error("No active user found in the database. Please seed the database first.");
+  }
+
+  const userExists = await db.user.findUnique({
+    where: { id: userId },
+    select: { id: true }
+  });
+
+  if (userExists) {
+    return userId;
+  }
+
+  const fallbackUser = await db.user.findFirst({
+    where: { isActive: true },
+    select: { id: true }
+  });
+
+  if (fallbackUser) {
+    return fallbackUser.id;
+  }
+
+  throw new Error("No active user found in the database. Please seed the database first.");
+}
+
 export async function createPurchaseOrder(data: CreatePurchaseOrderInput, userId: string) {
   const parsed = createPurchaseOrderSchema.parse(data);
   const db = await getDb();
+  const activeUserId = await resolveActiveUserId(db, userId);
 
   const result = await db.$transaction(async (tx) => {
     const poNumber = await nextCode(tx, "purchaseOrder", "poNumber", "PO");
@@ -71,7 +103,7 @@ export async function createPurchaseOrder(data: CreatePurchaseOrderInput, userId
         totalAmount,
         paidAmount: new Decimal(0),
         notes: parsed.notes,
-        createdBy: userId,
+        createdBy: activeUserId,
       },
     });
 
@@ -92,7 +124,7 @@ export async function createPurchaseOrder(data: CreatePurchaseOrderInput, userId
 
     await tx.auditLog.create({
       data: {
-        userId,
+        userId: activeUserId,
         action: "CREATE",
         module: "PURCHASE",
         recordId: po.id,
@@ -188,6 +220,7 @@ export async function addPOItem(data: AddPOItemInput, userId: string) {
 
 export async function submitPurchaseOrder(id: string, userId: string) {
   const db = await getDb();
+  const activeUserId = await resolveActiveUserId(db, userId);
   const po = await db.purchaseOrder.findUnique({ where: { id }, include: { items: true } });
   if (!po) throw new Error("PO not found");
   if (po.status !== "DRAFT") throw new Error("Can only submit draft POs");
@@ -196,7 +229,7 @@ export async function submitPurchaseOrder(id: string, userId: string) {
   const result = await db.$transaction(async (tx) => {
     const updated = await tx.purchaseOrder.update({ where: { id }, data: { status: "ORDERED" } });
     await tx.auditLog.create({
-      data: { userId, action: "SUBMIT", module: "PURCHASE", recordId: id, newValues: { status: "ORDERED" } },
+      data: { userId: activeUserId, action: "SUBMIT", module: "PURCHASE", recordId: id, newValues: { status: "ORDERED" } },
     });
     return updated;
   });

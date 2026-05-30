@@ -1,0 +1,67 @@
+name: CI — Test and Build
+
+on:
+  push:
+    branches: [ main, develop, staging ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: nextgen_user
+          POSTGRES_PASSWORD: NextGen@2026
+          POSTGRES_DB: nextgen_erp_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+        env:
+          DATABASE_URL: postgresql://nextgen_user:NextGen@2026@localhost:5432/nextgen_erp_test
+
+      - name: Push database schema
+        run: npx prisma db push
+        env:
+          DATABASE_URL: postgresql://nextgen_user:NextGen@2026@localhost:5432/nextgen_erp_test
+
+      - name: TypeScript check
+        run: npx tsc --noEmit
+
+      - name: Build application
+        run: npm run build
+        env:
+          DATABASE_URL: postgresql://nextgen_user:NextGen@2026@localhost:5432/nextgen_erp_test
+          NEXTAUTH_SECRET: ci_test_secret_not_real
+          NEXTAUTH_URL: http://localhost:3000
+          RESEND_API_KEY: re_test_key
+          NEXT_PUBLIC_APP_NAME: NextGen ERP
+          NEXT_PUBLIC_PAN: 122782202
+          NEXT_PUBLIC_PHONE: 9843146474
+          NEXT_PUBLIC_ADDRESS: Jhapa Nepal
+
+      - name: Build success notification
+        run: echo "✅ Build passed successfully"

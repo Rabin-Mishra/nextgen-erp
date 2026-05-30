@@ -85,34 +85,13 @@ export function PurchaseOrderTable({ orders, userId }: PurchaseOrderTableProps) 
       cell: ({ row }) => row.original.expectedDate ? <DualDateDisplay date={row.original.expectedDate} /> : "—",
     },
     {
-      accessorKey: "totalAmount",
-      header: "Total",
+      id: "itemsCount",
+      header: "Items Count",
       cell: ({ row }) => (
-        <span className="font-semibold text-sm text-zinc-900">
-          {formatNPR(parseFloat(row.original.totalAmount))}
+        <span className="text-sm font-semibold text-zinc-700">
+          {row.original.items.length}
         </span>
       ),
-    },
-    {
-      accessorKey: "paidAmount",
-      header: "Paid",
-      cell: ({ row }) => (
-        <span className="text-sm text-emerald-600 font-medium">
-          {formatNPR(parseFloat(row.original.paidAmount))}
-        </span>
-      ),
-    },
-    {
-      accessorKey: "balance",
-      header: "Balance",
-      cell: ({ row }) => {
-        const balance = parseFloat(row.original.balance);
-        return (
-          <span className={`text-sm font-bold ${balance > 0 ? "text-orange-600" : "text-zinc-600"}`}>
-            {formatNPR(balance)}
-          </span>
-        );
-      },
     },
     {
       accessorKey: "status",

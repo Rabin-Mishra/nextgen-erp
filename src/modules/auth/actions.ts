@@ -3,7 +3,7 @@
 import { z } from "zod";
 import { getDb } from "../../lib/db";
 import { getCurrentUser } from "../../auth/session";
-import { Role, ROLES } from "../../lib/constants";
+import { ROLES } from "../../lib/constants";
 import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
 
@@ -496,3 +496,118 @@ export async function resendOTP(
 
   return { success: true };
 }
+
+export async function resetAllData(): Promise<{ success: boolean; error?: string }> {
+  try {
+    // 1. Auth check
+    const sessionUser = await getCurrentUser();
+    if (!sessionUser) {
+      return { success: false, error: "Unauthorized. Please log in." };
+    }
+    if (sessionUser.role !== "SUPERADMIN") {
+      return { success: false, error: "Access Denied. Only Superadmins can reset database records." };
+    }
+
+    const db = await getDb();
+
+    // Execute identical sequential wipe as scripts/reset-db.ts
+    await db.auditLog.deleteMany();
+    await db.expense.deleteMany();
+    await db.purchaseReturnItem.deleteMany();
+    await db.purchaseReturn.deleteMany();
+    await db.salesReturnItem.deleteMany();
+    await db.salesReturn.deleteMany();
+    await db.depreciationEntry.deleteMany();
+    await db.cashBookEntry.deleteMany();
+    await db.ledgerEntry.deleteMany();
+    await db.payment.deleteMany();
+    await db.projectBilling.deleteMany();
+    await db.salesInvoiceItem.deleteMany();
+    await db.salesInvoice.deleteMany();
+    await db.purchaseOrderItem.deleteMany();
+    await db.purchaseOrder.deleteMany();
+    await db.stockTransaction.deleteMany();
+    await db.inventoryStock.deleteMany();
+    await db.project.deleteMany();
+    await db.fixedAsset.deleteMany();
+    await db.fiscalYear.deleteMany();
+    await db.productVariant.deleteMany();
+    await db.product.deleteMany();
+    await db.customer.deleteMany();
+    await db.supplier.deleteMany();
+    await db.warehouse.deleteMany();
+    await db.brand.deleteMany();
+    await db.category.deleteMany();
+    await db.passwordResetToken.deleteMany();
+    await db.businessSettings.deleteMany();
+    await db.user.deleteMany();
+
+    // 1. Create Superadmin User
+    const adminHash = await bcrypt.hash("Admin@2026", 12);
+    await db.user.create({
+      data: {
+        name: "Nischal Timsina",
+        email: "admin@nextgen.com",
+        phone: "9843146474",
+        passwordHash: adminHash,
+        role: "SUPERADMIN",
+        isActive: true,
+      },
+    });
+
+    // 2. Create production Fiscal Year
+    await db.fiscalYear.create({
+      data: {
+        name: "2081-82",
+        startDate: new Date("2024-07-17"), // Shrawan 1, 2081
+        endDate: new Date("2025-07-16"),   // Ashadh 32, 2082
+        isCurrent: true,
+        isClosed: false,
+      },
+    });
+
+    // 3. Create production Warehouse (1 single main warehouse)
+    await db.warehouse.create({
+      data: {
+        name: "Main Warehouse",
+        location: "Gauradaha Nagarpalika-02, Jhapa, Nepal",
+        description: "Central operations warehouse depot",
+        isActive: true,
+      },
+    });
+
+    // 4. Create production Business Settings
+    const settingsData = [
+      { key: "business_name", value: "NextGen Interior And WaterProofing", category: "business", label: "Business Name" },
+      { key: "business_pan", value: "122782202", category: "business", label: "PAN / VAT Code" },
+      { key: "business_address", value: "Gauradaha Nagarpalika-02, Jhapa, Nepal", category: "business", label: "Address" },
+      { key: "business_phone", value: "9843146474", category: "business", label: "Phone Number" },
+      { key: "business_email", value: "nextgen.interior2025@gmail.com, nischaltimsina20@gmail.com", category: "business", label: "Contact Emails" },
+      { key: "business_owner", value: "Nischal Timsina", category: "business", label: "Owner Name" },
+      { key: "invoice_terms", value: "Thank you for your business!", category: "invoice", label: "Invoice Terms & Notes" },
+      { key: "invoice_color_retail", value: "#2563eb", category: "invoice", label: "Retail Branding Color" },
+      { key: "invoice_color_wholesale", value: "#16a34a", category: "invoice", label: "Wholesale Branding Color" },
+      { key: "invoice_color_project", value: "#9333ea", category: "invoice", label: "Project Branding Color" },
+    ];
+
+    await Promise.all(
+      settingsData.map((s) =>
+        db.businessSettings.create({
+          data: {
+            key: s.key,
+            value: s.value,
+            category: s.category,
+            label: s.label,
+            inputType: "text",
+          },
+        })
+      )
+    );
+
+    return { success: true };
+  } catch (err: any) {
+    console.error("Failed to reset database:", err);
+    return { success: false, error: err.message || "Failed to reset database." };
+  }
+}
+

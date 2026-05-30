@@ -19,9 +19,10 @@ import {
   getBusinessSettingsAction,
   saveBusinessSettingsAction
 } from "../../modules/settings/actions";
+import { resetAllData } from "../../modules/auth/actions";
 import { SystemSettings, BusinessInfo, InvoiceSettings } from "../../lib/settings-store";
 import { toast } from "sonner";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "../ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "../ui/dialog";
 import {
   Building2,
   FileText,
@@ -67,8 +68,10 @@ export function SettingsPage({
   initialFiscalYears,
   sessionUser
 }: SettingsPageProps) {
-  const [activeTab, setActiveTab] = useState<"business" | "invoice" | "fiscal" | "warehouses" | "backup">("business");
+  const [activeTab, setActiveTab] = useState<"business" | "invoice" | "fiscal" | "warehouses" | "backup" | "danger">("business");
   const [loading, setLoading] = useState(false);
+  const [dangerConfirmText, setDangerConfirmText] = useState("");
+  const [showResetDialog, setShowResetDialog] = useState(false);
 
   // 1. Business Info form states
   const [bizName, setBizName] = useState(initialSettings.businessInfo.name);
@@ -122,6 +125,25 @@ export function SettingsPage({
   const [editWhLoc, setEditWhLoc] = useState("");
   const [editWhDesc, setEditWhDesc] = useState("");
   const [isEditWhOpen, setIsEditWhOpen] = useState(false);
+
+  const handleResetAllData = async () => {
+    try {
+      setLoading(true);
+      setShowResetDialog(false);
+      const res = await resetAllData();
+      if (res.success) {
+        toast.success("All data has been cleared. Start fresh.");
+        // Redirect to dashboard
+        window.location.href = "/dashboard";
+      } else {
+        toast.error(res.error || "Failed to reset database.");
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Failed to reset database.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const isAdminOrOwner = sessionUser.role === "SUPERADMIN" || sessionUser.role === "OWNER";
   const isSuperAdmin = sessionUser.role === "SUPERADMIN";
@@ -400,6 +422,20 @@ export function SettingsPage({
           <Database className="h-4.5 w-4.5" />
           Database Backup
         </button>
+
+        {isSuperAdmin && (
+          <button
+            onClick={() => setActiveTab("danger")}
+            className={`pb-3 px-4 text-sm font-bold border-b-2 transition-all flex items-center gap-1.5 ${
+              activeTab === "danger"
+                ? "border-rose-600 text-rose-600 dark:text-rose-500 font-extrabold"
+                : "border-transparent text-rose-500/75 hover:text-rose-600"
+            }`}
+          >
+            <AlertCircle className="h-4.5 w-4.5 animate-pulse" />
+            Danger Zone
+          </button>
+        )}
       </div>
 
       {/* 1. Business Info Tab */}
@@ -981,6 +1017,88 @@ export function SettingsPage({
             </div>
           </Card>
         </div>
+      )}
+
+      {/* 6. Danger Zone Tab (SuperAdmin only) */}
+      {isSuperAdmin && activeTab === "danger" && (
+        <div className="max-w-2xl">
+          <Card className="border border-rose-200 dark:border-rose-900/50 shadow-sm rounded-2xl dark:bg-zinc-950 p-6 space-y-6">
+            <CardHeader className="p-0 pb-4 mb-4 border-b border-rose-100 dark:border-rose-900/30">
+              <CardTitle className="text-sm font-bold uppercase tracking-wider text-rose-600 dark:text-rose-450 flex items-center gap-2">
+                <AlertCircle className="h-5 w-5 text-rose-500" />
+                ⚠️ Reset All Business Data
+              </CardTitle>
+            </CardHeader>
+
+            <CardContent className="p-0 space-y-6">
+              <div className="p-4 bg-rose-50 dark:bg-rose-950/20 rounded-xl border border-rose-100 dark:border-rose-900/30 text-rose-800 dark:text-rose-400 text-sm leading-relaxed font-semibold">
+                This will permanently delete all products, customers, suppliers, invoices, ledger entries, and transactions. Only your admin account, warehouses, and fiscal year will be kept. <span className="font-bold underline">This cannot be undone.</span>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="danger-confirm" className="text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wide">
+                  Type RESET to confirm
+                </Label>
+                <Input
+                  id="danger-confirm"
+                  placeholder="RESET"
+                  value={dangerConfirmText}
+                  onChange={(e) => setDangerConfirmText(e.target.value)}
+                  disabled={loading}
+                  className="h-10 rounded-xl border-zinc-200 focus:border-rose-500 focus:ring-rose-500/20 font-bold tracking-widest text-center uppercase"
+                />
+              </div>
+
+              <div className="flex justify-end pt-2">
+                <Button
+                  onClick={() => setShowResetDialog(true)}
+                  disabled={loading || dangerConfirmText !== "RESET"}
+                  className="h-11 px-6 rounded-xl font-bold bg-rose-600 hover:bg-rose-700 text-white flex items-center gap-2 shadow-md shadow-rose-600/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Trash2 className="h-4.5 w-4.5" />
+                  Reset All Data
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Danger Zone Final Confirmation Dialog */}
+      {showResetDialog && (
+        <Dialog open={showResetDialog} onOpenChange={(val) => !val && setShowResetDialog(false)}>
+          <DialogContent className="max-w-md rounded-2xl p-6 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-zinc-900 dark:text-zinc-50 font-bold">
+                <AlertCircle className="h-5 w-5 text-rose-500" />
+                Are you absolutely sure?
+              </DialogTitle>
+              <DialogDescription className="text-zinc-500 dark:text-zinc-400 text-sm pt-2 leading-relaxed">
+                This will wipe out all transactional records and reset the system. This cannot be reversed.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="pt-4 flex items-center justify-end gap-2 border-t border-zinc-100 dark:border-zinc-900 mt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowResetDialog(false)}
+                disabled={loading}
+                className="h-10 rounded-xl"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                onClick={handleResetAllData}
+                disabled={loading}
+                className="h-10 rounded-xl bg-rose-600 hover:bg-rose-700 text-white shadow-md shadow-rose-600/20"
+              >
+                {loading && <Loader2 className="h-4 w-4 animate-spin mr-1.5" />}
+                Yes, Reset Everything
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       )}
       {/* Edit Warehouse Modal */}
       {isEditWhOpen && selectedWarehouse && (

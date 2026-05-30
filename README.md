@@ -1,62 +1,155 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# NextGen Interior & Waterproofing — ERP System
 
-## Getting Started
+A production-grade ERP for construction materials distributors built with Next.js 16, TypeScript, Prisma ORM, and PostgreSQL.
 
-First, run the development server:
+## Tech Stack
+- **Frontend**: Next.js 16 (App Router) + TypeScript
+- **Styling**: Tailwind CSS + shadcn/ui
+- **Database**: PostgreSQL via Prisma ORM
+- **Auth**: NextAuth.js v5 (JWT + RBAC)
+- **Email**: Resend API
+- **Deployment**: Vercel + Supabase (or Docker + VPS)
 
+## Modules
+- Dashboard — Real-time KPIs and business overview
+- Inventory — Multi-vendor pricing, stock management
+- Purchase — PO lifecycle, vendor management
+- Sales — Retail, Wholesale, Project invoicing
+- Projects — Job costing, material tracking
+- Ledger — Double-entry accounting
+- Cash Book — Daily cash tracking
+- Reports — P&L, Balance Sheet, Trading Account
+- Expenses — Operating expense tracking
+- Users — Role-based access control
+
+## Getting Started (Local Development)
+
+### Prerequisites
+- Node.js 20+
+- PostgreSQL 16+
+- Git
+
+### Setup
 ```bash
+# Clone the repository
+git clone https://github.com/your-username/nextgen-erp.git
+cd nextgen-erp
+
+# Copy environment file
+cp .env.example .env
+# Edit .env with your values
+
+# Run automated setup
+npm run setup
+# This installs deps, generates Prisma client, 
+# pushes schema, and seeds database
+
+# Start development server
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open http://localhost:3000
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Default login: admin@nextgen.com / Admin@2026
+**Change password immediately after first login**
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Inventory Module Stage 3
-
-This project includes a completed Inventory module with the following features:
-
-- Prisma-backed inventory queries with search and status mapping
-- Inventory stock summary cards and low-stock alerts
-- Atomic creation of products, variants, stock, ledger transactions, and audit logs
-- Multi-vendor pricing support via `ProductVariant`
-- Per-row stock adjustment modal and CSV export endpoint
-- Lookup endpoints for Category, Brand, Warehouse selects
-
-### Running tests
-
-A basic test harness is included using `vitest`.
+## Docker Deployment
 
 ```bash
-npm run test
+# Copy and configure environment
+cp .env.example .env
+# Edit .env with production values
+
+# Start with Docker
+npm run docker:start
+
+# Stop
+npm run docker:stop
 ```
 
-### How to use
+## Environment Variables
 
-- `npm run dev` to start the app
-- Navigate to `/inventory` after login
-- Use `Add Product` to create products with vendor pricing
-- Use row-level `Adjust` to change stock quantity
+Copy `.env.example` to `.env` and fill in:
 
-## Deploy on Vercel
+| Variable | Description | Required |
+|----------|-------------|----------|
+| DATABASE_URL | PostgreSQL connection string | Yes |
+| NEXTAUTH_SECRET | Random 32-char string | Yes |
+| NEXTAUTH_URL | App URL (e.g. https://yourdomain.com) | Yes |
+| RESEND_API_KEY | Resend.com API key for emails | Yes |
+| NEXT_PUBLIC_APP_NAME | Business name shown in UI | Yes |
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Generate NEXTAUTH_SECRET:
+```bash
+openssl rand -base64 32
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## CI/CD Pipeline
+
+This project uses GitHub Actions:
+
+| Workflow | Trigger | Action |
+|----------|---------|--------|
+| CI | Every push/PR | TypeScript check + Build |
+| Deploy Production | Push to `main` | Deploy to Vercel |
+| Deploy Staging | Push to `staging` | Deploy to Vercel preview |
+
+## Branch Strategy
+
+| Branch | Purpose |
+|--------|---------|
+| `main` | Production — auto-deploys |
+| `staging` | UAT testing — auto-deploys to preview |
+| `develop` | Active development |
+| `feature/*` | New features |
+| `fix/*` | Bug fixes |
+
+## Deployment for Fork Users
+
+If you forked this repository:
+
+1. Create accounts on:
+   - Vercel (vercel.com)
+   - Supabase (supabase.com)
+   - Resend (resend.com)
+
+2. Add GitHub Secrets in your repo:
+   Settings → Secrets → Actions → New secret
+   
+   Required secrets:
+   - DATABASE_URL
+   - NEXTAUTH_SECRET
+   - NEXTAUTH_URL
+   - RESEND_API_KEY
+   - VERCEL_TOKEN
+   - VERCEL_ORG_ID
+   - VERCEL_PROJECT_ID
+   - NEXT_PUBLIC_APP_NAME
+   - NEXT_PUBLIC_PAN
+   - NEXT_PUBLIC_PHONE
+   - NEXT_PUBLIC_ADDRESS
+
+3. Push to main — GitHub Actions deploys automatically
+
+## Database Management
+
+```bash
+# View database
+npm run db:studio
+
+# Push schema changes
+npm run db:push
+
+# Seed with sample data
+npm run db:seed
+
+# Reset all data (keeps admin + warehouses)
+npm run db:reset
+
+# Backup database
+npm run backup
+```
+
+## License
+Private — All rights reserved
+NextGen Interior And WaterProofing, Jhapa, Nepal

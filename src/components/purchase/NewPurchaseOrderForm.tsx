@@ -85,7 +85,7 @@ export function NewPurchaseOrderForm({ userId }: NewPurchaseOrderFormProps) {
               ...item,
               productId: selectedProductId,
               unit: product.unit,
-              unitPrice: Number(product.purchasePrice || 0),
+              unitPrice: 0,
             }
           : item
       )
@@ -97,9 +97,9 @@ export function NewPurchaseOrderForm({ userId }: NewPurchaseOrderFormProps) {
   };
 
   // Calculations
-  const subtotal = items.reduce((sum, item) => sum + (Number(item.quantity || 0) * Number(item.unitPrice || 0)), 0);
-  const tax = applyVat ? (subtotal - discount) * 0.13 : 0;
-  const total = subtotal - discount + tax;
+  const subtotal = 0;
+  const tax = 0;
+  const total = 0;
 
   const handleCreate = async (shouldSubmit: boolean) => {
     if (!supplierId) {
@@ -123,11 +123,11 @@ export function NewPurchaseOrderForm({ userId }: NewPurchaseOrderFormProps) {
       items: items.map((item) => ({
         productId: item.productId,
         orderedQty: Number(item.quantity),
-        unitPrice: Number(item.unitPrice),
+        unitPrice: 0,
         notes: item.notes || undefined,
       })),
-      discountAmount: Number(discount),
-      taxAmount: Number(tax),
+      discountAmount: 0,
+      taxAmount: 0,
     };
 
     // Client-side Zod validation
@@ -184,7 +184,7 @@ export function NewPurchaseOrderForm({ userId }: NewPurchaseOrderFormProps) {
               <ShoppingBag size={20} className="text-blue-600" /> Create Purchase Order
             </DialogTitle>
             <DialogDescription className="text-zinc-500 text-xs mt-0.5">
-              Draft or submit a new procurement request with material quantities, unit prices, and financial terms.
+              Draft or submit a new procurement request with material specifications and quantities.
             </DialogDescription>
           </DialogHeader>
 
@@ -277,7 +277,7 @@ export function NewPurchaseOrderForm({ userId }: NewPurchaseOrderFormProps) {
                     <div key={item.id} className="grid grid-cols-12 gap-3 items-end p-4 border border-zinc-200 rounded-xl bg-white relative shadow-sm hover:border-zinc-300 transition-colors duration-150">
                       
                       {/* Product select */}
-                      <div className="col-span-12 sm:col-span-3">
+                      <div className="col-span-12 sm:col-span-4">
                         <label className="text-[10px] font-semibold text-zinc-500 block mb-1">Product *</label>
                         <select
                           value={item.productId}
@@ -294,7 +294,7 @@ export function NewPurchaseOrderForm({ userId }: NewPurchaseOrderFormProps) {
                       </div>
 
                       {/* Quantity input */}
-                      <div className="col-span-6 sm:col-span-1.5">
+                      <div className="col-span-6 sm:col-span-2">
                         <label className="text-[10px] font-semibold text-zinc-500 block mb-1">Quantity *</label>
                         <Input
                           type="number"
@@ -306,42 +306,30 @@ export function NewPurchaseOrderForm({ userId }: NewPurchaseOrderFormProps) {
                         />
                       </div>
 
-                      {/* Unit label (read-only) */}
-                      <div className="col-span-6 sm:col-span-1">
-                        <label className="text-[10px] font-semibold text-zinc-500 block mb-1">Unit</label>
-                        <Input
-                          placeholder="Unit"
-                          value={item.unit}
-                          disabled
-                          className="h-9 bg-zinc-50 border-zinc-250 text-zinc-500 text-xs shadow-none cursor-not-allowed"
-                        />
-                      </div>
-
-                      {/* Unit Price input */}
-                      <div className="col-span-6 sm:col-span-2">
-                        <label className="text-[10px] font-semibold text-zinc-500 block mb-1">Unit Price (NPR) *</label>
-                        <Input
-                          type="number"
-                          placeholder="0.00"
-                          value={item.unitPrice || ""}
-                          min={0}
-                          onChange={(e) => updateItem(item.id, { unitPrice: Math.max(0, parseFloat(e.target.value) || 0) })}
-                          className="h-9 bg-white border-zinc-300 text-zinc-900 text-xs shadow-sm focus:border-blue-500"
-                        />
-                      </div>
-
-                      {/* Dynamic Line Total */}
+                      {/* Unit select dropdown */}
                       <div className="col-span-6 sm:col-span-1.5">
-                        <label className="text-[10px] font-semibold text-zinc-500 block mb-1">Total (NPR)</label>
-                        <Input
-                          value={(Number(item.quantity || 0) * Number(item.unitPrice || 0)).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                          disabled
-                          className="h-9 bg-zinc-50 border-zinc-250 text-zinc-800 font-semibold text-xs shadow-none cursor-not-allowed text-right"
-                        />
+                        <label className="text-[10px] font-semibold text-zinc-500 block mb-1">Unit</label>
+                        <select
+                          value={item.unit}
+                          onChange={(e) => updateItem(item.id, { unit: e.target.value })}
+                          className="w-full h-9 rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-xs text-zinc-900 focus:outline-none focus:ring-2 focus:ring-blue-500/50 shadow-sm"
+                        >
+                          {!["PCS", "BAG", "METER", "KG", "LITRE", "SQ_FT", "ROLL", "BOX"].includes(item.unit) && item.unit && (
+                            <option value={item.unit}>{item.unit}</option>
+                          )}
+                          <option value="PCS">PCS</option>
+                          <option value="BAG">BAG</option>
+                          <option value="METER">METER</option>
+                          <option value="KG">KG</option>
+                          <option value="LITRE">LITRE</option>
+                          <option value="SQ_FT">SQ FT</option>
+                          <option value="ROLL">ROLL</option>
+                          <option value="BOX">BOX</option>
+                        </select>
                       </div>
 
                       {/* Line Specifications */}
-                      <div className="col-span-10 sm:col-span-2.5">
+                      <div className="col-span-10 sm:col-span-4">
                         <label className="text-[10px] font-semibold text-zinc-500 block mb-1">Line Specifications / Notes</label>
                         <Input
                           placeholder="e.g. thickness, color spec..."
@@ -354,6 +342,7 @@ export function NewPurchaseOrderForm({ userId }: NewPurchaseOrderFormProps) {
                       {/* Action */}
                       <div className="col-span-2 sm:col-span-0.5 flex justify-end">
                         <Button
+                          type="button"
                           variant="ghost"
                           size="icon"
                           className="h-9 w-9 text-rose-600 hover:text-rose-700 hover:bg-rose-50"
@@ -367,53 +356,6 @@ export function NewPurchaseOrderForm({ userId }: NewPurchaseOrderFormProps) {
                 </div>
               )}
             </div>
-
-            {/* Totals & Calculations Grid */}
-            {items.length > 0 && (
-              <div className="flex justify-end p-5 rounded-xl border border-zinc-200 bg-zinc-50/50 shadow-sm">
-                <div className="w-80 space-y-3 text-sm text-zinc-800">
-                  <div className="flex justify-between items-center">
-                    <span className="text-zinc-500 font-medium">Subtotal:</span>
-                    <span className="font-bold text-zinc-800">
-                      NPR {subtotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                    </span>
-                  </div>
-                  
-                  <div className="flex justify-between items-center gap-3">
-                    <span className="text-zinc-500 font-medium">Discount (NPR):</span>
-                    <Input
-                      type="number"
-                      placeholder="0"
-                      value={discount || ""}
-                      onChange={(e) => setDiscount(Math.max(0, parseFloat(e.target.value) || 0))}
-                      className="w-32 h-8 text-right bg-white border-zinc-300 text-zinc-900 shadow-sm"
-                    />
-                  </div>
-
-                  <div className="flex justify-between items-center border-t border-zinc-200/60 pt-2">
-                    <div className="flex items-center gap-2">
-                      <span className="text-zinc-500 font-medium">Apply VAT (13%):</span>
-                      <input
-                        type="checkbox"
-                        checked={applyVat}
-                        onChange={(e) => setApplyVat(e.target.checked)}
-                        className="rounded border-zinc-300 text-blue-600 focus:ring-blue-500"
-                      />
-                    </div>
-                    <span className="font-semibold text-zinc-800">
-                      NPR {tax.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                    </span>
-                  </div>
-
-                  <div className="flex justify-between font-bold text-base border-t border-zinc-200 pt-2 text-zinc-900">
-                    <span>Grand Total:</span>
-                    <span className="text-blue-600 font-bold">
-                      NPR {total.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
 
           <DialogFooter className="border-t border-zinc-200 pt-4 flex gap-2 justify-end">
