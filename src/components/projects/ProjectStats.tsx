@@ -1,6 +1,6 @@
 "use client";
 
-import { Briefcase, DollarSign, TrendingUp, ShieldCheck } from "lucide-react";
+import { Briefcase, Coins, TrendingUp, ShieldCheck } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatNPR } from "@/lib/utils";
 import type { ProjectStatsSchema } from "@/modules/projects/types";
@@ -36,7 +36,7 @@ export function ProjectStats({ stats }: ProjectStatsProps) {
         <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
           <CardTitle className="text-xs font-bold uppercase tracking-wider text-zinc-400">Total Billed</CardTitle>
           <div className="p-2.5 rounded-xl text-emerald-500 bg-emerald-50 dark:bg-emerald-950/20">
-            <DollarSign className="h-4 w-4" />
+            <Coins className="h-4 w-4" />
           </div>
         </CardHeader>
         <CardContent className="pt-2">

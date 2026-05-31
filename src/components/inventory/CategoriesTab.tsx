@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
@@ -27,6 +28,7 @@ interface CategoriesTabProps {
 }
 
 export function CategoriesTab({ initialCategories }: CategoriesTabProps) {
+  const router = useRouter();
   const [categories, setCategories] = useState<CategoryData[]>(initialCategories);
   const [search, setSearch] = useState("");
   
@@ -39,11 +41,14 @@ export function CategoriesTab({ initialCategories }: CategoriesTabProps) {
   const [categoryToDelete, setCategoryToDelete] = useState<CategoryData | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
-  // Refresh data by fetching lookup or calling router refresh
+  // Sync prop changes to state
+  useEffect(() => {
+    setCategories(initialCategories);
+  }, [initialCategories]);
+
+  // Refresh data by reloading router
   const handleSuccess = async () => {
-    // Instead of full page reload, we trigger a window location reload/refresh
-    // which updates Next.js server components elegantly.
-    window.location.reload();
+    router.refresh();
   };
 
   // Toggle category activation state

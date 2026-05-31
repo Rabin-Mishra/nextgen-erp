@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,8 +34,14 @@ interface SupplierListTableProps {
 }
 
 export function SupplierListTable({ suppliers: initialSuppliers, userId }: SupplierListTableProps) {
+  const router = useRouter();
   const [suppliers, setSuppliers] = useState<SupplierData[]>(initialSuppliers);
   const [searchQuery, setSearchQuery] = useState("");
+
+  // Sync prop changes to state
+  useEffect(() => {
+    setSuppliers(initialSuppliers);
+  }, [initialSuppliers]);
 
   // Ledger Modal State
   const [selectedSupplierId, setSelectedSupplierId] = useState<string | null>(null);
@@ -94,7 +101,7 @@ export function SupplierListTable({ suppliers: initialSuppliers, userId }: Suppl
       toast.success(`Supplier "${supplierToDelete.name}" successfully deleted.`);
       setShowDeleteModal(false);
       setSupplierToDelete(null);
-      window.location.reload();
+      router.refresh();
     } catch (err: any) {
       console.error(err);
       if (err.message && err.message.includes("Cannot delete.")) {
@@ -120,7 +127,7 @@ export function SupplierListTable({ suppliers: initialSuppliers, userId }: Suppl
       toast.success(`Supplier "${supplierToDeactivate.name}" has been deactivated successfully.`);
       setShowBlockModal(false);
       setSupplierToDeactivate(null);
-      window.location.reload();
+      router.refresh();
     } catch (err: any) {
       toast.error(err.message || "Failed to deactivate supplier");
     } finally {
@@ -241,7 +248,7 @@ export function SupplierListTable({ suppliers: initialSuppliers, userId }: Suppl
             setShowEditModal(false);
             setSupplierToEdit(null);
           }}
-          onSuccess={() => window.location.reload()}
+          onSuccess={() => router.refresh()}
           supplier={supplierToEdit}
           userId={userId}
         />

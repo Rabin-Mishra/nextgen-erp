@@ -5,31 +5,34 @@ import type { PrismaClient } from "../generated/prisma/client";
 declare global {
   // eslint-disable-next-line no-var
   var prismaGlobal: PrismaClient | undefined;
+  // eslint-disable-next-line no-var
+  var prismaPromiseGlobal: Promise<PrismaClient> | undefined;
 }
-
-const getGlobalPrisma = (): PrismaClient | undefined => {
-  return globalThis.prismaGlobal;
-};
-
-const setGlobalPrisma = (client: PrismaClient) => {
-  if (process.env.NODE_ENV !== "production") {
-    globalThis.prismaGlobal = client;
-  }
-};
 
 async function createPrismaClient(): Promise<PrismaClient> {
   const { PrismaClient } = await import("../generated/prisma/client");
-  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  const pool = new Pool({ 
+    connectionString: process.env.DATABASE_URL,
+    max: 5, // Limit connection pool size per instance to prevent exhausting Postgres in dev mode
+    idleTimeoutMillis: 15000, // Automatically close idle connections quickly
+  });
   const adapter = new PrismaPg(pool);
   const client = new PrismaClient({ adapter });
-  setGlobalPrisma(client);
+  
+  if (process.env.NODE_ENV !== "production") {
+    globalThis.prismaGlobal = client;
+  }
   return client;
 }
 
 export async function getDb(): Promise<PrismaClient> {
-  const existing = getGlobalPrisma();
-  if (existing) {
-    return existing;
+  if (globalThis.prismaGlobal) {
+    return globalThis.prismaGlobal;
   }
-  return createPrismaClient();
+  if (globalThis.prismaPromiseGlobal) {
+    return globalThis.prismaPromiseGlobal;
+  }
+  
+  globalThis.prismaPromiseGlobal = createPrismaClient();
+  return globalThis.prismaPromiseGlobal;
 }

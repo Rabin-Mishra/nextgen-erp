@@ -3,7 +3,7 @@
 import React from "react";
 import { NPRAmount } from "@/components/shared/NPRAmount";
 import { Card, CardContent } from "@/components/ui/card";
-import { DollarSign } from "lucide-react";
+import { Coins } from "lucide-react";
 
 interface CashFlowReportProps {
   data: {
@@ -39,7 +39,7 @@ export function CashFlowReport({ data }: CashFlowReportProps) {
           <p className="text-xs text-zinc-400 font-medium mt-1">Period Ending: {data.period}</p>
         </div>
         <div className="p-3 bg-zinc-800 rounded-2xl">
-          <DollarSign className="h-5 w-5 text-emerald-500" />
+          <Coins className="h-5 w-5 text-emerald-500" />
         </div>
       </div>
 

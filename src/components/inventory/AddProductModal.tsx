@@ -165,9 +165,9 @@ export function AddProductModal() {
           <Plus size={16} /> Add Product
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-2xl border-zinc-800 bg-zinc-950/95 backdrop-blur-xl text-zinc-150">
+      <DialogContent className="max-w-2xl rounded-2xl p-6">
         <DialogHeader>
-          <DialogTitle className="text-xl font-bold bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">
+          <DialogTitle className="text-xl font-bold text-zinc-900 dark:text-zinc-50 flex items-center gap-2">
             {step === 1 ? 'Add Product — Basic Details' : 'Add Product — Supplier Pricing Variants'}
           </DialogTitle>
           <DialogDescription className="sr-only">
@@ -179,24 +179,24 @@ export function AddProductModal() {
           <div className="space-y-4 py-2">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5 col-span-2">
-                <Label htmlFor="name" className="text-sm font-medium text-zinc-300">Product Name</Label>
+                <Label htmlFor="name" className="text-xs font-bold text-zinc-500 uppercase tracking-wide">Product Name</Label>
                 <Input
                   id="name"
                   placeholder="e.g. Waterproofing Compound Premium"
                   value={form.name}
                   onChange={(e) => update('name', e.target.value)}
-                  className="bg-zinc-900 border-zinc-800 focus:ring-amber-500 focus:border-amber-500 text-zinc-100"
+                  className="h-10 rounded-xl border-zinc-200 dark:border-zinc-800"
                 />
                 {errors.name && <span className="text-xs text-rose-500 font-medium">{errors.name}</span>}
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="categoryId" className="text-sm font-medium text-zinc-300">Category</Label>
+                <Label htmlFor="categoryId" className="text-xs font-bold text-zinc-500 uppercase tracking-wide">Category</Label>
                 <select
                   id="categoryId"
                   value={form.categoryId}
                   onChange={(e) => update('categoryId', e.target.value)}
-                  className="w-full h-10 rounded-md border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+                  className="w-full h-10 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-transparent px-3 py-2 text-sm text-zinc-900 dark:text-zinc-50 focus:outline-none focus:ring-2 focus:ring-primary/20"
                 >
                   <option value="">Select Category</option>
                   {options.categories.map((c) => (
@@ -207,12 +207,12 @@ export function AddProductModal() {
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="brandId" className="text-sm font-medium text-zinc-300">Brand</Label>
+                <Label htmlFor="brandId" className="text-xs font-bold text-zinc-500 uppercase tracking-wide">Brand</Label>
                 <select
                   id="brandId"
                   value={form.brandId}
                   onChange={(e) => update('brandId', e.target.value)}
-                  className="w-full h-10 rounded-md border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+                  className="w-full h-10 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-transparent px-3 py-2 text-sm text-zinc-900 dark:text-zinc-50 focus:outline-none focus:ring-2 focus:ring-primary/20"
                 >
                   <option value="">Select Brand</option>
                   {options.brands.map((b) => (
@@ -223,12 +223,12 @@ export function AddProductModal() {
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="warehouseId" className="text-sm font-medium text-zinc-300">Warehouse</Label>
+                <Label htmlFor="warehouseId" className="text-xs font-bold text-zinc-500 uppercase tracking-wide">Warehouse</Label>
                 <select
                   id="warehouseId"
                   value={form.warehouseId}
                   onChange={(e) => update('warehouseId', e.target.value)}
-                  className="w-full h-10 rounded-md border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+                  className="w-full h-10 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-transparent px-3 py-2 text-sm text-zinc-900 dark:text-zinc-50 focus:outline-none focus:ring-2 focus:ring-primary/20"
                 >
                   <option value="">Select Warehouse</option>
                   {options.warehouses.map((w) => (
@@ -242,12 +242,12 @@ export function AddProductModal() {
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="unit" className="text-sm font-medium text-zinc-300">Unit of Measurement</Label>
+                <Label htmlFor="unit" className="text-xs font-bold text-zinc-500 uppercase tracking-wide">Unit of Measurement</Label>
                 <select
                   id="unit"
                   value={form.unit}
                   onChange={(e) => update('unit', e.target.value)}
-                  className="w-full h-10 rounded-md border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+                  className="w-full h-10 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-transparent px-3 py-2 text-sm text-zinc-900 dark:text-zinc-50 focus:outline-none focus:ring-2 focus:ring-primary/20"
                 >
                   <option value="BAG">BAG</option>
                   <option value="PCS">PCS</option>
@@ -262,39 +262,39 @@ export function AddProductModal() {
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="quantity" className="text-sm font-medium text-zinc-300">Initial Stock Quantity</Label>
+                <Label htmlFor="quantity" className="text-xs font-bold text-zinc-500 uppercase tracking-wide">Initial Stock Quantity</Label>
                 <Input
                   id="quantity"
                   type="number"
                   placeholder="0"
                   value={form.quantity}
                   onChange={(e) => update('quantity', Math.max(0, Number(e.target.value)))}
-                  className="bg-zinc-900 border-zinc-800 text-zinc-100"
+                  className="h-10 rounded-xl border-zinc-200 dark:border-zinc-800"
                 />
                 {errors.quantity && <span className="text-xs text-rose-500 font-medium">{errors.quantity}</span>}
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="reorderLevel" className="text-sm font-medium text-zinc-300">Reorder Level Alert Threshold</Label>
+                <Label htmlFor="reorderLevel" className="text-xs font-bold text-zinc-500 uppercase tracking-wide">Reorder Level Alert Threshold</Label>
                 <Input
                   id="reorderLevel"
                   type="number"
                   placeholder="0"
                   value={form.reorderLevel}
                   onChange={(e) => update('reorderLevel', Math.max(0, Number(e.target.value)))}
-                  className="bg-zinc-900 border-zinc-800 text-zinc-100"
+                  className="h-10 rounded-xl border-zinc-200 dark:border-zinc-800"
                 />
                 {errors.reorderLevel && <span className="text-xs text-rose-500 font-medium">{errors.reorderLevel}</span>}
               </div>
 
               <div className="space-y-1.5 col-span-2">
-                <Label htmlFor="description" className="text-sm font-medium text-zinc-300">Description (Optional)</Label>
+                <Label htmlFor="description" className="text-xs font-bold text-zinc-500 uppercase tracking-wide">Description (Optional)</Label>
                 <textarea
                   id="description"
                   placeholder="Product specs, usage guidelines, etc."
                   value={form.description}
                   onChange={(e) => update('description', e.target.value)}
-                  className="w-full min-h-16 rounded-md border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+                  className="w-full min-h-16 rounded-xl border border-zinc-200 dark:border-zinc-800 p-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 bg-transparent text-zinc-900 dark:text-zinc-50"
                 />
               </div>
             </div>
@@ -302,32 +302,32 @@ export function AddProductModal() {
         ) : (
           <div className="space-y-4 py-2 max-h-[50vh] overflow-y-auto pr-1">
             <div className="flex justify-between items-center">
-              <span className="text-sm text-zinc-400">Configure cost and client selling prices per supplier.</span>
+              <span className="text-sm text-zinc-500">Configure cost and client selling prices per supplier.</span>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={addVariant}
-                className="border-zinc-800 bg-zinc-900 text-zinc-200 hover:bg-zinc-800 hover:text-white gap-1"
+                className="h-10 px-4 rounded-xl text-zinc-600 font-bold border-zinc-200 dark:border-zinc-800 gap-1"
               >
                 <Plus size={14} /> Add Supplier Price Row
               </Button>
             </div>
 
             {(!form.variants || form.variants.length === 0) ? (
-              <div className="text-center py-8 border border-dashed border-zinc-800 rounded-lg bg-zinc-900/30">
+              <div className="text-center py-8 border border-dashed border-zinc-200 dark:border-zinc-800 rounded-2xl bg-zinc-50 dark:bg-zinc-900/30">
                 <p className="text-sm text-zinc-500">No supplier pricing added yet. Highly recommended to configure at least one.</p>
               </div>
             ) : (
               <div className="space-y-4">
                 {form.variants.map((v: any, i: number) => (
-                  <div key={i} className="p-4 border border-zinc-800 rounded-lg bg-zinc-900/40 relative space-y-3">
-                    <div className="flex justify-between items-center pb-1 border-b border-zinc-800/60">
+                  <div key={i} className="p-4 border border-zinc-200 dark:border-zinc-800 rounded-2xl bg-zinc-50/50 dark:bg-zinc-900/40 relative space-y-3">
+                    <div className="flex justify-between items-center pb-1 border-b border-zinc-200/60">
                       <span className="text-xs font-semibold text-amber-500">Supplier Combo #{i + 1}</span>
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => removeVariant(i)}
-                        className="h-7 text-rose-500 hover:text-rose-400 hover:bg-rose-950/20 px-2"
+                        className="h-7 text-rose-500 hover:text-rose-600 hover:bg-rose-50/50 px-2 rounded-lg"
                       >
                         Remove Row
                       </Button>
@@ -348,7 +348,7 @@ export function AddProductModal() {
                               return next;
                             });
                           }}
-                          className="w-full h-9 rounded-md border border-zinc-800 bg-zinc-950 px-2 py-1 text-sm text-zinc-100 focus:outline-none"
+                          className="w-full h-10 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-transparent px-3 py-2 text-sm text-zinc-900 dark:text-zinc-50 focus:outline-none"
                         >
                           <option value="">Select Supplier</option>
                           {options.suppliers.map((s) => (
@@ -371,7 +371,7 @@ export function AddProductModal() {
                             arr[i].purchasePrice = Number(e.target.value);
                             setForm({ ...form, variants: arr });
                           }}
-                          className="h-9 bg-zinc-950 border-zinc-800 text-zinc-100"
+                          className="h-10 rounded-xl border-zinc-200 dark:border-zinc-800"
                         />
                         {errors[`variant_${i}_purchase`] && (
                           <span className="text-[10px] text-rose-500">{errors[`variant_${i}_purchase`]}</span>
@@ -389,7 +389,7 @@ export function AddProductModal() {
                             arr[i].retailPrice = Number(e.target.value);
                             setForm({ ...form, variants: arr });
                           }}
-                          className="h-9 bg-zinc-950 border-zinc-800 text-zinc-100"
+                          className="h-10 rounded-xl border-zinc-200 dark:border-zinc-800"
                         />
                         {errors[`variant_${i}_retail`] && (
                           <span className="text-[10px] text-rose-500">{errors[`variant_${i}_retail`]}</span>
@@ -407,7 +407,7 @@ export function AddProductModal() {
                             arr[i].wholesalePrice = Number(e.target.value);
                             setForm({ ...form, variants: arr });
                           }}
-                          className="h-9 bg-zinc-950 border-zinc-800 text-zinc-100"
+                          className="h-10 rounded-xl border-zinc-200 dark:border-zinc-800"
                         />
                         {errors[`variant_${i}_wholesale`] && (
                           <span className="text-[10px] text-rose-500">{errors[`variant_${i}_wholesale`]}</span>
@@ -425,7 +425,7 @@ export function AddProductModal() {
                             arr[i].projectPrice = Number(e.target.value);
                             setForm({ ...form, variants: arr });
                           }}
-                          className="h-9 bg-zinc-950 border-zinc-800 text-zinc-100"
+                          className="h-10 rounded-xl border-zinc-200 dark:border-zinc-800"
                         />
                       </div>
                     </div>
@@ -436,12 +436,12 @@ export function AddProductModal() {
           </div>
         )}
 
-        <DialogFooter className="border-t border-zinc-900 pt-4 flex gap-2">
+        <DialogFooter className="pt-4 border-t border-zinc-100 dark:border-zinc-900 flex gap-2">
           {step > 1 && (
             <Button
               variant="outline"
               onClick={() => setStep(1)}
-              className="border-zinc-800 bg-zinc-900 text-zinc-200 hover:bg-zinc-800 hover:text-white gap-2"
+              className="h-10 px-4 rounded-xl text-zinc-600 font-bold border-zinc-200 dark:border-zinc-800 gap-2"
             >
               <ChevronLeft size={16} /> Back
             </Button>
@@ -449,14 +449,14 @@ export function AddProductModal() {
           {step === 1 ? (
             <Button
               onClick={handleNext}
-              className="gap-2 bg-amber-500 hover:bg-amber-600 text-zinc-950 font-semibold"
+              className="h-10 px-5 rounded-xl font-bold flex items-center gap-2 shadow-md bg-amber-500 hover:bg-amber-600 text-zinc-950"
             >
               Next: Pricing <ChevronRight size={16} />
             </Button>
           ) : (
             <Button
               onClick={submit}
-              className="gap-2 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-semibold"
+              className="h-10 px-5 rounded-xl font-bold flex items-center gap-2 shadow-md bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white"
             >
               <Save size={16} /> Save Product
             </Button>

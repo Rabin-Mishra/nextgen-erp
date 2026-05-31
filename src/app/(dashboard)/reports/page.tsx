@@ -15,7 +15,7 @@ import {
   FileCheck,
   Percent,
   Briefcase,
-  DollarSign
+  Coins
 } from "lucide-react";
 
 export default function ReportsPage() {
@@ -58,7 +58,7 @@ export default function ReportsPage() {
           key: "cash_flow",
           title: "Cash Flow Statement",
           desc: "GAAP direct-method flows tracking operating receipts, suppliers, capital, and assets.",
-          icon: DollarSign,
+          icon: Coins,
           color: "text-emerald-500 bg-emerald-50 dark:bg-emerald-950/20"
         }
       ]

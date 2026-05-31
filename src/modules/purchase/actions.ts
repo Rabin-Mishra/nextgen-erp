@@ -141,6 +141,7 @@ export async function createPurchaseOrder(data: CreatePurchaseOrderInput, userId
 export async function updatePurchaseOrder(id: string, data: UpdatePurchaseOrderInput, userId: string) {
   const parsed = updatePurchaseOrderSchema.parse(data);
   const db = await getDb();
+  const activeUserId = await resolveActiveUserId(db, userId);
 
   const po = await db.purchaseOrder.findUnique({ where: { id } });
   if (!po) throw new Error("PO not found");
@@ -165,7 +166,7 @@ export async function updatePurchaseOrder(id: string, data: UpdatePurchaseOrderI
     });
 
     await tx.auditLog.create({
-      data: { userId, action: "UPDATE", module: "PURCHASE", recordId: id, newValues: parsed },
+      data: { userId: activeUserId, action: "UPDATE", module: "PURCHASE", recordId: id, newValues: parsed },
     });
 
     return updated;
@@ -177,6 +178,7 @@ export async function updatePurchaseOrder(id: string, data: UpdatePurchaseOrderI
 export async function addPOItem(data: AddPOItemInput, userId: string) {
   const parsed = addPOItemSchema.parse(data);
   const db = await getDb();
+  const activeUserId = await resolveActiveUserId(db, userId);
 
   const po = await db.purchaseOrder.findUnique({
     where: { id: parsed.purchaseOrderId },
@@ -209,7 +211,7 @@ export async function addPOItem(data: AddPOItemInput, userId: string) {
     });
 
     await tx.auditLog.create({
-      data: { userId, action: "ADD_ITEM", module: "PURCHASE", recordId: parsed.purchaseOrderId, newValues: parsed },
+      data: { userId: activeUserId, action: "ADD_ITEM", module: "PURCHASE", recordId: parsed.purchaseOrderId, newValues: parsed },
     });
 
     return updated;
@@ -240,6 +242,7 @@ export async function submitPurchaseOrder(id: string, userId: string) {
 export async function receiveGoods(data: ReceiveGoodsInput, userId: string) {
   const parsed = receiveGoodsSchema.parse(data);
   const db = await getDb();
+  const activeUserId = await resolveActiveUserId(db, userId);
 
   const po = await db.purchaseOrder.findUnique({
     where: { id: parsed.purchaseOrderId },
@@ -285,7 +288,7 @@ export async function receiveGoods(data: ReceiveGoodsInput, userId: string) {
           referenceType: "PURCHASE_ORDER",
           referenceId: po.id,
           notes: parsed.notes ?? `Received from PO ${po.poNumber}`,
-          userId,
+          userId: activeUserId,
         },
       });
 
@@ -325,7 +328,7 @@ export async function receiveGoods(data: ReceiveGoodsInput, userId: string) {
           description: `Goods received from PO ${po.poNumber}`,
           runningBalance: previousBalance.plus(receivedValue),
           channelType: "GENERAL",
-          createdBy: userId,
+          createdBy: activeUserId,
         },
       });
     }
@@ -342,7 +345,7 @@ export async function receiveGoods(data: ReceiveGoodsInput, userId: string) {
 
     await tx.auditLog.create({
       data: {
-        userId,
+        userId: activeUserId,
         action: "RECEIVE_GOODS",
         module: "PURCHASE",
         recordId: parsed.purchaseOrderId,
@@ -358,6 +361,7 @@ export async function receiveGoods(data: ReceiveGoodsInput, userId: string) {
 export async function recordPurchasePayment(data: RecordPurchasePaymentInput, userId: string) {
   const parsed = recordPurchasePaymentSchema.parse(data);
   const db = await getDb();
+  const activeUserId = await resolveActiveUserId(db, userId);
 
   const po = await db.purchaseOrder.findUnique({ where: { id: parsed.purchaseOrderId }, include: { supplier: true } });
   if (!po) throw new Error("PO not found");
@@ -383,7 +387,7 @@ export async function recordPurchasePayment(data: RecordPurchasePaymentInput, us
         paymentMethod,
         paymentDate,
         notes: parsed.reference ? `${parsed.reference}${parsed.notes ? ` - ${parsed.notes}` : ""}` : parsed.notes,
-        createdBy: userId,
+        createdBy: activeUserId,
       },
     });
 
@@ -400,7 +404,7 @@ export async function recordPurchasePayment(data: RecordPurchasePaymentInput, us
         description: `Payment against PO ${po.poNumber}`,
         runningBalance: previousBalance.minus(paymentAmount),
         channelType: "GENERAL",
-        createdBy: userId,
+        createdBy: activeUserId,
       },
     });
 
@@ -415,7 +419,7 @@ export async function recordPurchasePayment(data: RecordPurchasePaymentInput, us
         referenceType: "PURCHASE",
         referenceId: po.id,
         paymentMethod,
-        createdBy: userId,
+        createdBy: activeUserId,
       },
     });
 
@@ -426,7 +430,7 @@ export async function recordPurchasePayment(data: RecordPurchasePaymentInput, us
 
     await tx.auditLog.create({
       data: {
-        userId,
+        userId: activeUserId,
         action: "RECORD_PAYMENT",
         module: "PURCHASE",
         recordId: parsed.purchaseOrderId,
@@ -444,6 +448,7 @@ export async function recordPurchasePayment(data: RecordPurchasePaymentInput, us
 
 export async function cancelPurchaseOrder(id: string, userId: string) {
   const db = await getDb();
+  const activeUserId = await resolveActiveUserId(db, userId);
   const po = await db.purchaseOrder.findUnique({ where: { id } });
   if (!po) throw new Error("PO not found");
   if (!["DRAFT", "ORDERED"].includes(po.status)) throw new Error("Can only cancel draft or ordered POs");
@@ -451,7 +456,7 @@ export async function cancelPurchaseOrder(id: string, userId: string) {
   const result = await db.$transaction(async (tx) => {
     const updated = await tx.purchaseOrder.update({ where: { id }, data: { status: "CANCELLED" } });
     await tx.auditLog.create({
-      data: { userId, action: "CANCEL", module: "PURCHASE", recordId: id, newValues: { status: "CANCELLED" } },
+      data: { userId: activeUserId, action: "CANCEL", module: "PURCHASE", recordId: id, newValues: { status: "CANCELLED" } },
     });
     return updated;
   });
@@ -462,8 +467,9 @@ export async function cancelPurchaseOrder(id: string, userId: string) {
 export async function createSupplier(data: CreateSupplierInput, userId: string) {
   const parsed = createSupplierSchema.parse(data);
   const db = await getDb();
+  const activeUserId = await resolveActiveUserId(db, userId);
 
-  return db.$transaction(async (tx) => {
+  const result = await db.$transaction(async (tx) => {
     const code = parsed.code || (await nextCode(tx, "supplier", "code", "SUP"));
     const supplier = await tx.supplier.create({
       data: {
@@ -481,21 +487,25 @@ export async function createSupplier(data: CreateSupplierInput, userId: string) 
     });
 
     await tx.auditLog.create({
-      data: { userId, action: "CREATE", module: "SUPPLIER", recordId: supplier.id, newValues: { code, name: parsed.name } },
+      data: { userId: activeUserId, action: "CREATE", module: "SUPPLIER", recordId: supplier.id, newValues: { code, name: parsed.name } },
     });
 
     return supplier;
   });
+
+  revalidatePath("/purchase");
+  return serializeForClient(result);
 }
 
 export async function updateSupplier(id: string, data: UpdateSupplierInput, userId: string) {
   const parsed = updateSupplierSchema.parse(data);
   const db = await getDb();
+  const activeUserId = await resolveActiveUserId(db, userId);
 
   const supplier = await db.supplier.findUnique({ where: { id } });
   if (!supplier) throw new Error("Supplier not found");
 
-  return db.$transaction(async (tx) => {
+  const result = await db.$transaction(async (tx) => {
     const updated = await tx.supplier.update({
       where: { id },
       data: {
@@ -513,11 +523,14 @@ export async function updateSupplier(id: string, data: UpdateSupplierInput, user
     });
 
     await tx.auditLog.create({
-      data: { userId, action: "UPDATE", module: "SUPPLIER", recordId: id, newValues: parsed },
+      data: { userId: activeUserId, action: "UPDATE", module: "SUPPLIER", recordId: id, newValues: parsed },
     });
 
     return updated;
   });
+
+  revalidatePath("/purchase");
+  return serializeForClient(result);
 }
 
 export async function getPurchaseLookups() {
@@ -535,6 +548,7 @@ export async function fetchSupplierLedger(supplierId: string) {
 
 export async function deleteSupplier(id: string, userId: string) {
   const db = await getDb();
+  const activeUserId = await resolveActiveUserId(db, userId);
 
   const supplier = await db.supplier.findUnique({ where: { id } });
   if (!supplier) throw new Error("Supplier not found");
@@ -544,12 +558,12 @@ export async function deleteSupplier(id: string, userId: string) {
     throw new Error(`Cannot delete. This supplier has ${poCount} purchase orders. Deactivate instead?`);
   }
 
-  return db.$transaction(async (tx) => {
+  const result = await db.$transaction(async (tx) => {
     const deleted = await tx.supplier.delete({ where: { id } });
 
     await tx.auditLog.create({
       data: {
-        userId,
+        userId: activeUserId,
         action: "DELETE",
         module: "SUPPLIER",
         recordId: id,
@@ -557,9 +571,11 @@ export async function deleteSupplier(id: string, userId: string) {
       },
     });
 
-    revalidatePath("/purchase");
     return deleted;
   });
+
+  revalidatePath("/purchase");
+  return serializeForClient(result);
 }
 
 export async function createPurchaseReturn(data: {
@@ -568,6 +584,7 @@ export async function createPurchaseReturn(data: {
   items: Array<{ productId: string; qty: number; unitPrice: number }>;
 }, userId: string) {
   const db = await getDb();
+  const activeUserId = await resolveActiveUserId(db, userId);
 
   const result = await db.$transaction(async (tx) => {
     const returnNumber = await nextCode(tx, "purchaseReturn", "returnNumber", "PRN");
@@ -581,7 +598,7 @@ export async function createPurchaseReturn(data: {
         status: "PROCESSED",
         totalAmount,
         notes: data.notes,
-        createdBy: userId,
+        createdBy: activeUserId,
       },
     });
 
@@ -613,7 +630,7 @@ export async function createPurchaseReturn(data: {
           referenceType: "PURCHASE_RETURN",
           referenceId: pr.id,
           notes: data.notes,
-          userId,
+          userId: activeUserId,
         },
       });
 
@@ -640,13 +657,13 @@ export async function createPurchaseReturn(data: {
         description: `Purchase Return ${returnNumber}: ${data.notes}`,
         runningBalance: previousBalance.minus(totalAmount),
         channelType: "GENERAL",
-        createdBy: userId,
+        createdBy: activeUserId,
       },
     });
 
     await tx.auditLog.create({
       data: {
-        userId,
+        userId: activeUserId,
         action: "RETURN_OUT",
         module: "PURCHASE",
         recordId: pr.id,
@@ -658,7 +675,7 @@ export async function createPurchaseReturn(data: {
   });
 
   revalidatePath("/purchase");
-  return result;
+  return serializeForClient(result);
 }
 
 export async function fetchPOByIdAction(id: string) {

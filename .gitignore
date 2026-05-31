@@ -53,3 +53,16 @@ prisma/*.sqlite3
 # uploads
 uploads/
 tmp/
+
+# Manual Testing Playbooks & AI Prompts
+DATA_ENTRY_GUIDE.md
+*Prompt.md
+*WALKTHROUGH.md
+.env
+.env.local
+# Manual Testing Playbooks & AI Prompts
+DATA_ENTRY_GUIDE.md
+*Prompt.md
+*WALKTHROUGH.md
+.env
+.env.local

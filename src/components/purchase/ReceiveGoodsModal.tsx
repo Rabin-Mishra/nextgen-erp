@@ -10,7 +10,7 @@ import type { PurchaseOrderItemSchema } from "@/modules/purchase/types";
 import { receiveGoodsSchema } from "@/modules/purchase/types";
 import { receiveGoods } from "@/modules/purchase/actions";
 import { toast } from "sonner";
-import { Package, ShieldAlert, Check } from "lucide-react";
+import { Package } from "lucide-react";
 
 interface ReceiveGoodsModalProps {
   open?: boolean;
@@ -156,24 +156,24 @@ export function ReceiveGoodsModal({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent className="w-[98vw] max-w-[98vw] h-[95vh] flex flex-col overflow-hidden bg-zinc-950/95 border-zinc-900 text-zinc-150">
-        <DialogHeader className="border-b border-zinc-900 pb-3">
-          <DialogTitle className="text-xl font-bold flex items-center gap-2 text-zinc-50">
-            <Package size={20} className="text-amber-500" /> Receive Goods — PO: <span className="font-mono text-zinc-400">{poNumber}</span>
+      <DialogContent className="w-[98vw] max-w-[98vw] h-[95vh] flex flex-col overflow-hidden bg-white border-zinc-200 text-zinc-800">
+        <DialogHeader className="border-b border-zinc-200 pb-3">
+          <DialogTitle className="text-xl font-bold flex items-center gap-2 text-zinc-900">
+            <Package size={20} className="text-amber-500" /> Receive Goods — PO: <span className="font-mono text-zinc-500">{poNumber}</span>
           </DialogTitle>
-          <DialogDescription className="text-xs text-zinc-400 mt-0.5">
+          <DialogDescription className="text-xs text-zinc-500 mt-0.5">
             Log receiving materials from this purchase order. Define destination warehouse, actual quantity received, and cost prices. Financial ledger balances will post automatically.
           </DialogDescription>
         </DialogHeader>
 
         <div className="flex-grow overflow-y-auto py-4 space-y-4 pr-1">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-xl border border-zinc-900 bg-zinc-900/30">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-xl border border-zinc-200 bg-zinc-50">
             <div className="space-y-1.5">
-              <Label className="text-xs font-semibold text-zinc-400 tracking-wider uppercase block">Destination Warehouse *</Label>
+              <Label className="text-xs font-semibold text-zinc-500 tracking-wider uppercase block">Destination Warehouse *</Label>
               <select
                 value={warehouseId}
                 onChange={(e) => setWarehouseId(e.target.value)}
-                className="w-full h-10 rounded-md border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+                className="w-full h-10 rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-amber-500/50"
               >
                 <option value="">-- Select Warehouse --</option>
                 {warehouses.map((w) => (
@@ -183,44 +183,44 @@ export function ReceiveGoodsModal({
             </div>
 
             <div className="space-y-1.5">
-              <Label className="text-xs font-semibold text-zinc-400 tracking-wider uppercase block">Receiving Notes</Label>
+              <Label className="text-xs font-semibold text-zinc-500 tracking-wider uppercase block">Receiving Notes</Label>
               <Input
                 placeholder="e.g. Challan #, delivery van details, loading inspector..."
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                className="h-10 bg-zinc-900 border-zinc-800 text-zinc-100"
+                className="h-10 bg-white border-zinc-200 text-zinc-900"
               />
             </div>
           </div>
 
-          <h4 className="text-xs font-bold text-zinc-400 uppercase tracking-wider mt-4">Order Items to Reconcile</h4>
+          <h4 className="text-xs font-bold text-zinc-500 uppercase tracking-wider mt-4">Order Items to Reconcile</h4>
           {poItems.length === 0 ? (
-            <div className="text-center py-8 border border-dashed border-zinc-900 rounded-lg bg-zinc-900/20">
+            <div className="text-center py-8 border border-dashed border-zinc-200 rounded-lg bg-zinc-50">
               <p className="text-sm text-zinc-500 italic">No items associated with this Purchase Order.</p>
             </div>
           ) : (
-            <div className="border border-zinc-900 rounded-xl divide-y divide-zinc-900 overflow-hidden bg-zinc-900/10">
+            <div className="border border-zinc-200 rounded-xl divide-y divide-zinc-200 overflow-hidden bg-zinc-50/20">
               {poItems.map((item) => {
                 const remaining = item.orderedQty - item.receivedQty;
                 const receiveQtyValue = receiving[item.id] ?? 0;
                 const priceValue = prices[item.id] ?? 0;
 
                 return (
-                  <div key={item.id} className="p-4 grid grid-cols-12 gap-4 items-center hover:bg-zinc-900/20">
+                  <div key={item.id} className="p-4 grid grid-cols-12 gap-4 items-center hover:bg-zinc-50">
                     <div className="col-span-12 sm:col-span-4">
-                      <p className="font-semibold text-zinc-200">{item.productName}</p>
+                      <p className="font-semibold text-zinc-800">{item.productName}</p>
                       <p className="text-[10px] text-zinc-500 font-mono mt-0.5">{item.productCode}</p>
                     </div>
 
                     <div className="col-span-12 sm:col-span-8 grid grid-cols-4 gap-3 items-end">
-                      <div className="text-center bg-zinc-900/50 py-1.5 rounded border border-zinc-900">
+                      <div className="text-center bg-zinc-100/50 py-1.5 rounded border border-zinc-200">
                         <span className="text-[9px] text-zinc-500 uppercase font-semibold block">Demand</span>
-                        <p className="text-xs font-bold text-zinc-300">{item.orderedQty} {item.productUnit}</p>
+                        <p className="text-xs font-bold text-zinc-700">{item.orderedQty} {item.productUnit}</p>
                       </div>
 
-                      <div className="text-center bg-zinc-900/50 py-1.5 rounded border border-zinc-900">
+                      <div className="text-center bg-zinc-100/50 py-1.5 rounded border border-zinc-200">
                         <span className="text-[9px] text-zinc-500 uppercase font-semibold block">Received</span>
-                        <p className="text-xs font-bold text-emerald-500">{item.receivedQty} {item.productUnit}</p>
+                        <p className="text-xs font-bold text-emerald-600">{item.receivedQty} {item.productUnit}</p>
                       </div>
 
                       <div className="space-y-1">
@@ -231,7 +231,7 @@ export function ReceiveGoodsModal({
                           min={0}
                           value={receiveQtyValue}
                           onChange={(e) => handleReceive(item.id, Math.min(remaining, Math.max(0, parseInt(e.target.value) || 0)))}
-                          className="h-8 text-xs bg-zinc-900 border-zinc-800 text-zinc-100 text-center"
+                          className="h-8 text-xs bg-white border-zinc-200 text-zinc-900 text-center"
                           disabled={remaining <= 0}
                         />
                       </div>
@@ -243,7 +243,7 @@ export function ReceiveGoodsModal({
                           placeholder="0.00"
                           value={priceValue === 0 ? "" : priceValue}
                           onChange={(e) => handlePrice(item.id, Math.max(0, parseFloat(e.target.value) || 0))}
-                          className="h-8 text-xs bg-zinc-900 border-zinc-800 text-zinc-100 text-center font-mono"
+                          className="h-8 text-xs bg-white border-zinc-200 text-zinc-900 text-center font-mono"
                           disabled={remaining <= 0}
                         />
                       </div>
@@ -255,12 +255,12 @@ export function ReceiveGoodsModal({
           )}
         </div>
 
-        <DialogFooter className="border-t border-zinc-900 pt-4 flex gap-2 justify-end">
+        <DialogFooter className="border-t border-zinc-200 pt-4 flex gap-2 justify-end">
           <Button
             variant="outline"
             onClick={() => setOpen(false)}
             disabled={loading}
-            className="border-zinc-800 bg-zinc-900 text-zinc-200 hover:bg-zinc-800 hover:text-white"
+            className="border-zinc-200 bg-white hover:bg-zinc-100 text-zinc-700"
           >
             Cancel
           </Button>

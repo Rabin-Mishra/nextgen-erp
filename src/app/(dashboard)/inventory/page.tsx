@@ -125,7 +125,7 @@ export default async function InventoryPage({ searchParams }: InventoryPageProps
             </div>
             <div className="flex items-center justify-end gap-2 mb-4">
               <AddProductModal />
-              <AdjustStockModal />
+              <AdjustStockModal stocks={items} />
             </div>
             <InventoryTable items={items} />
           </section>

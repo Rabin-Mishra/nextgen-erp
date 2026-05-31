@@ -13,7 +13,7 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import {
   Briefcase,
-  DollarSign,
+  Coins,
   Calendar,
   Hammer,
   Clock,
@@ -161,7 +161,7 @@ export function ProjectDetailClient({ data }: ProjectDetailClientProps) {
         <Card className="border shadow-sm rounded-2xl bg-zinc-50/50 dark:bg-zinc-900/10">
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
             <CardTitle className="text-xs font-bold uppercase tracking-wider text-zinc-400">Contract Value</CardTitle>
-            <DollarSign className="h-4.5 w-4.5 text-zinc-400" />
+            <Coins className="h-4.5 w-4.5 text-zinc-400" />
           </CardHeader>
           <CardContent className="pt-2">
             <div className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">

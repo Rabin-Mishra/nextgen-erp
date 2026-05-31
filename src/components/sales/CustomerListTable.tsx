@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,8 +35,14 @@ interface CustomerListTableProps {
 }
 
 export function CustomerListTable({ customers: initialCustomers }: CustomerListTableProps) {
+  const router = useRouter();
   const [customers, setCustomers] = useState<CustomerData[]>(initialCustomers);
   const [searchQuery, setSearchQuery] = useState("");
+
+  // Sync prop changes to state
+  useEffect(() => {
+    setCustomers(initialCustomers);
+  }, [initialCustomers]);
   
   // Ledger Modal State
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
@@ -94,7 +101,7 @@ export function CustomerListTable({ customers: initialCustomers }: CustomerListT
       toast.success(`Customer "${customerToDelete.name}" successfully deleted.`);
       setShowDeleteModal(false);
       setCustomerToDelete(null);
-      window.location.reload();
+      router.refresh();
     } catch (err: any) {
       console.error(err);
       if (err.message && err.message.includes("Cannot delete.")) {
@@ -120,7 +127,7 @@ export function CustomerListTable({ customers: initialCustomers }: CustomerListT
       toast.success(`Customer "${customerToDeactivate.name}" has been deactivated successfully.`);
       setShowBlockModal(false);
       setCustomerToDeactivate(null);
-      window.location.reload();
+      router.refresh();
     } catch (err: any) {
       toast.error(err.message || "Failed to deactivate customer");
     } finally {
@@ -249,7 +256,7 @@ export function CustomerListTable({ customers: initialCustomers }: CustomerListT
             setShowEditModal(false);
             setCustomerToEdit(null);
           }}
-          onSuccess={() => window.location.reload()}
+          onSuccess={() => router.refresh()}
           customer={customerToEdit}
         />
       )}

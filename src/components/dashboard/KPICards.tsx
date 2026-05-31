@@ -4,7 +4,7 @@ import React from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { formatRs } from "@/lib/utils";
 import {
-  DollarSign,
+  Coins,
   Briefcase,
   AlertTriangle,
   Layers,
@@ -43,7 +43,7 @@ export function KPICards({ data }: KPICardsProps) {
       isAmount: true,
       desc: "Chronological Channel Billings (MoM)",
       trend: data.revenue.pctChange,
-      icon: DollarSign,
+      icon: Coins,
       color: "text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900/50",
       borderColor: "border-t-[4px] border-t-emerald-500 shadow-[0_1px_3px_rgba(16,185,129,0.1)]",
       textColor: "text-emerald-600 dark:text-emerald-450 font-black",

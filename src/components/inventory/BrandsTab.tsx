@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
@@ -27,6 +28,7 @@ interface BrandsTabProps {
 }
 
 export function BrandsTab({ initialBrands }: BrandsTabProps) {
+  const router = useRouter();
   const [brands, setBrands] = useState<BrandData[]>(initialBrands);
   const [search, setSearch] = useState("");
 
@@ -39,9 +41,14 @@ export function BrandsTab({ initialBrands }: BrandsTabProps) {
   const [brandToDelete, setBrandToDelete] = useState<BrandData | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
-  // Refresh data by reloading window
+  // Sync prop changes to state
+  useEffect(() => {
+    setBrands(initialBrands);
+  }, [initialBrands]);
+
+  // Refresh data by reloading router
   const handleSuccess = async () => {
-    window.location.reload();
+    router.refresh();
   };
 
   // Toggle brand activation state

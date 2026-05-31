@@ -94,7 +94,7 @@ export function InventoryTable({ items }: InventoryTableProps) {
       </div>
 
       {selectedStockId && (
-        <AdjustStockModal initialStockId={selectedStockId} open={true} onOpenChange={(o) => { if (!o) setSelectedStockId(null); }} />
+        <AdjustStockModal initialStockId={selectedStockId} stocks={items} open={true} onOpenChange={(o) => { if (!o) setSelectedStockId(null); }} />
       )}
     </>
   );

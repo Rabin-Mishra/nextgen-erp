@@ -3,12 +3,46 @@
 import { getDb } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import Decimal from "decimal.js";
-import { nextCode } from "@/lib/utils";
+import { nextCode, serializeForClient } from "@/lib/utils";
+import { getCurrentUser } from "@/auth/session";
 import { createExpenseSchema, type CreateExpenseInput } from "./types";
+
+async function resolveActiveUserId(db: any, userId?: string): Promise<string> {
+  const resolved = userId || (await getCurrentUser())?.id;
+  if (!resolved) {
+    const fallbackUser = await db.user.findFirst({
+      where: { isActive: true },
+      select: { id: true }
+    });
+    if (fallbackUser) return fallbackUser.id;
+    throw new Error("No active user found in the database. Please seed the database first.");
+  }
+
+  const userExists = await db.user.findUnique({
+    where: { id: resolved },
+    select: { id: true }
+  });
+
+  if (userExists) {
+    return resolved;
+  }
+
+  const fallbackUser = await db.user.findFirst({
+    where: { isActive: true },
+    select: { id: true }
+  });
+
+  if (fallbackUser) {
+    return fallbackUser.id;
+  }
+
+  throw new Error("No active user found in the database. Please seed the database first.");
+}
 
 export async function createExpense(data: CreateExpenseInput, userId: string) {
   const parsed = createExpenseSchema.parse(data);
   const db = await getDb();
+  const activeUserId = await resolveActiveUserId(db, userId);
 
   const result = await db.$transaction(async (tx: any) => {
     const expenseCode = await nextCode(tx, "expense", "expenseCode", "EXP");
@@ -22,7 +56,7 @@ export async function createExpense(data: CreateExpenseInput, userId: string) {
         expenseDate: new Date(parsed.expenseDate),
         paymentMethod: parsed.paymentMethod,
         notes: parsed.notes,
-        createdBy: userId,
+        createdBy: activeUserId,
       },
     });
 
@@ -36,13 +70,13 @@ export async function createExpense(data: CreateExpenseInput, userId: string) {
         referenceType: "EXPENSE",
         referenceId: expense.id,
         paymentMethod: parsed.paymentMethod,
-        createdBy: userId,
+        createdBy: activeUserId,
       },
     });
 
     await tx.auditLog.create({
       data: {
-        userId,
+        userId: activeUserId,
         action: "CREATE",
         module: "EXPENSE",
         recordId: expense.id,
@@ -54,11 +88,12 @@ export async function createExpense(data: CreateExpenseInput, userId: string) {
   });
 
   revalidatePath("/expenses");
-  return result;
+  return serializeForClient(result);
 }
 
 export async function deleteExpense(id: string, userId: string) {
   const db = await getDb();
+  const activeUserId = await resolveActiveUserId(db, userId);
 
   const result = await db.$transaction(async (tx: any) => {
     const expense = await tx.expense.findUnique({ where: { id } });
@@ -73,7 +108,7 @@ export async function deleteExpense(id: string, userId: string) {
 
     await tx.auditLog.create({
       data: {
-        userId,
+        userId: activeUserId,
         action: "DELETE",
         module: "EXPENSE",
         recordId: id,
@@ -85,12 +120,13 @@ export async function deleteExpense(id: string, userId: string) {
   });
 
   revalidatePath("/expenses");
-  return result;
+  return serializeForClient(result);
 }
 
 export async function updateExpense(id: string, data: CreateExpenseInput, userId: string) {
   const parsed = createExpenseSchema.parse(data);
   const db = await getDb();
+  const activeUserId = await resolveActiveUserId(db, userId);
 
   const result = await db.$transaction(async (tx: any) => {
     const existing = await tx.expense.findUnique({ where: { id } });
@@ -124,13 +160,13 @@ export async function updateExpense(id: string, data: CreateExpenseInput, userId
         referenceType: "EXPENSE",
         referenceId: id,
         paymentMethod: parsed.paymentMethod,
-        createdBy: userId,
+        createdBy: activeUserId,
       },
     });
 
     await tx.auditLog.create({
       data: {
-        userId,
+        userId: activeUserId,
         action: "UPDATE",
         module: "EXPENSE",
         recordId: id,
@@ -143,5 +179,5 @@ export async function updateExpense(id: string, data: CreateExpenseInput, userId
   });
 
   revalidatePath("/expenses");
-  return result;
+  return serializeForClient(result);
 }

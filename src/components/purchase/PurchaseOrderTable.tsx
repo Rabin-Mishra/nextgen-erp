@@ -13,7 +13,7 @@ import { RecordPaymentModal } from "./RecordPaymentModal";
 import { SupplierLedgerModal } from "./SupplierLedgerModal";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { formatDate, formatNPR } from "@/lib/utils";
-import { Eye, CheckSquare, BookOpen, XCircle, ShoppingBag, DollarSign } from "lucide-react";
+import { Eye, CheckSquare, BookOpen, XCircle, ShoppingBag, CreditCard } from "lucide-react";
 import { DualDateDisplay } from "@/components/shared/DualDateDisplay";
 
 interface PurchaseOrderTableProps {
@@ -147,7 +147,7 @@ export function PurchaseOrderTable({ orders, userId }: PurchaseOrderTableProps) 
               }}
               className="h-8 border-emerald-250 bg-emerald-50 text-emerald-700 hover:bg-emerald-100/70 gap-1 rounded-md text-xs font-semibold"
             >
-              <DollarSign size={13} /> Pay
+              <CreditCard size={13} /> Pay
             </Button>
           )}
 

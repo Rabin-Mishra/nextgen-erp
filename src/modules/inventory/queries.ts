@@ -27,11 +27,19 @@ export async function fetchInventoryItems(opts: FetchInventoryOptions = {}) {
     ];
   }
 
-  // Fetch stocks with related product and warehouse
+  // Fetch stocks with related product, including category and brand, and warehouse
   const [items, total] = await Promise.all([
     db.inventoryStock.findMany({
       where: where,
-      include: { product: true, warehouse: true },
+      include: {
+        product: {
+          include: {
+            category: true,
+            brand: true,
+          },
+        },
+        warehouse: true,
+      },
       skip: (page - 1) * pageSize,
       take: pageSize,
       orderBy: { lastUpdated: 'desc' },
@@ -58,8 +66,8 @@ export async function fetchInventoryItems(opts: FetchInventoryOptions = {}) {
       productId: s.productId,
       productCode: s.product.code,
       name: s.product.name,
-      category: s.product.categoryId ?? null,
-      brand: s.product.brandId ?? null,
+      category: s.product.category?.name ?? null,
+      brand: s.product.brand?.name ?? null,
       warehouse: s.warehouse.name,
       warehouseId: s.warehouseId,
       unit: s.product.unit,
@@ -98,15 +106,25 @@ export async function fetchStockSummary() {
 export async function fetchInventoryAlerts() {
   const db = await getDb();
 
-  const all = await db.inventoryStock.findMany({ include: { product: true, warehouse: true } });
+  const all = await db.inventoryStock.findMany({ 
+    include: { 
+      product: {
+        include: {
+          category: true,
+          brand: true,
+        },
+      }, 
+      warehouse: true 
+    } 
+  });
   const alerts = all.filter((s) => s.quantity <= s.product.reorderLevel).map((s) => {
     return inventoryItemSchema.parse({
       id: s.id,
       productId: s.productId,
       productCode: s.product.code,
       name: s.product.name,
-      category: s.product.categoryId ?? null,
-      brand: s.product.brandId ?? null,
+      category: s.product.category?.name ?? null,
+      brand: s.product.brand?.name ?? null,
       warehouse: s.warehouse.name,
       warehouseId: s.warehouseId,
       unit: s.product.unit,
