@@ -156,6 +156,29 @@ export const salesInvoiceSchema = z.object({
   notes: z.string().nullable(),
   items: z.array(salesInvoiceItemSchema),
   payments: z.array(invoicePaymentSchema).default([]),
+  returns: z
+    .array(
+      z.object({
+        id: z.string(),
+        returnNumber: z.string(),
+        returnDate: z.string(),
+        totalAmount: z.string(),
+        notes: z.string().nullable(),
+        items: z.array(
+          z.object({
+            id: z.string(),
+            productId: z.string(),
+            productCode: z.string(),
+            productName: z.string(),
+            productUnit: z.string(),
+            qty: z.number().int(),
+            unitPrice: z.string(),
+            totalPrice: z.string(),
+          })
+        ),
+      })
+    )
+    .default([]),
   createdAt: z.string(),
 });
 

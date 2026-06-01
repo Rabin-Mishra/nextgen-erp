@@ -66,22 +66,34 @@ export function InvoiceTable({ invoices }: InvoiceTableProps) {
     },
     {
       accessorKey: "totalAmount",
-      header: "Amount",
-      cell: ({ row }) => <span className="font-semibold text-zinc-900 dark:text-zinc-100">{formatNPR(Number(row.original.totalAmount))}</span>,
+      header: "Amount (NPR)",
+      cell: ({ row }) => (
+        <span className="font-bold font-mono text-blue-700 dark:text-blue-400">
+          {Number(row.original.totalAmount).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+        </span>
+      ),
     },
     {
       accessorKey: "paidAmount",
-      header: "Paid",
-      cell: ({ row }) => <span className="text-zinc-600 dark:text-zinc-400">{formatNPR(Number(row.original.paidAmount))}</span>,
+      header: "Paid (NPR)",
+      cell: ({ row }) => (
+        <span className="font-semibold font-mono text-emerald-600 dark:text-emerald-400">
+          {Number(row.original.paidAmount).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+        </span>
+      ),
     },
     {
       accessorKey: "balanceAmount",
-      header: "Balance",
+      header: "Balance (NPR)",
       cell: ({ row }) => {
         const balance = Number(row.original.balanceAmount);
         return (
-          <span className={balance > 0 ? "font-semibold text-amber-600" : "font-semibold text-green-600"}>
-            {formatNPR(balance)}
+          <span
+            className={`font-bold font-mono ${
+              balance > 0 ? "text-amber-600 dark:text-amber-500" : "text-zinc-400 dark:text-zinc-500 font-medium"
+            }`}
+          >
+            {balance.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </span>
         );
       },

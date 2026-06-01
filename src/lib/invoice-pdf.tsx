@@ -81,10 +81,32 @@ const styles = StyleSheet.create({
     textAlign: "center",
     color: "#71717a",
   },
+  returnedRow: {
+    backgroundColor: "#fffafb",
+  },
+  strikeText: {
+    textDecoration: "line-through",
+    color: "#71717a",
+    fontSize: 8,
+  },
+  returnedText: {
+    color: "#dc2626",
+    fontSize: 8,
+  },
+  netText: {
+    fontWeight: 700,
+    fontSize: 9,
+  },
+  redBold: {
+    color: "#dc2626",
+    fontWeight: 700,
+  },
 });
 
 function money(value: string | number) {
-  return `NPR ${Number(value).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const num = Number(value);
+  const absVal = Math.abs(num).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return num < 0 ? `-NPR ${absVal}` : `NPR ${absVal}`;
 }
 
 interface InvoicePDFProps {
@@ -115,6 +137,32 @@ export function InvoicePDF({
     WHOLESALE: wholesaleColor,
     PROJECT: projectColor,
   };
+
+  // Aggregate returns by product variant/ID for detailed row breakdown
+  const returnsByProduct = new Map<
+    string,
+    {
+      qty: number;
+      totalPrice: number;
+      details: Array<{ returnNumber: string; qty: number; notes: string | null }>;
+    }
+  >();
+
+  if (invoice.returns) {
+    for (const ret of invoice.returns) {
+      for (const item of ret.items) {
+        const existing = returnsByProduct.get(item.productId) || { qty: 0, totalPrice: 0, details: [] };
+        existing.qty += item.qty;
+        existing.totalPrice += Number(item.totalPrice);
+        existing.details.push({
+          returnNumber: ret.returnNumber,
+          qty: item.qty,
+          notes: ret.notes,
+        });
+        returnsByProduct.set(item.productId, existing);
+      }
+    }
+  }
 
   return (
     <Document>
@@ -149,26 +197,136 @@ export function InvoicePDF({
         </View>
 
         <View style={styles.tableHeader}>
-          <Text style={styles.item}>Item</Text>
+          <Text style={styles.item}>Item & Returns Description</Text>
           <Text style={styles.qty}>Qty</Text>
           <Text style={styles.amount}>Rate</Text>
           <Text style={styles.amount}>Total</Text>
         </View>
-        {invoice.items.map((item) => (
-          <View key={item.id} style={styles.tableRow}>
-            <Text style={styles.item}>{item.productName}</Text>
-            <Text style={styles.qty}>{item.qty}</Text>
-            <Text style={styles.amount}>{money(item.unitPrice)}</Text>
-            <Text style={styles.amount}>{money(item.totalPrice)}</Text>
-          </View>
-        ))}
+        {invoice.items.map((item) => {
+          const retInfo = returnsByProduct.get(item.productId);
+          const isFullyReturned = retInfo && retInfo.qty >= item.qty;
 
-        <View style={styles.totals}>
-          <View style={styles.totalLine}><Text>Subtotal</Text><Text>{money(invoice.subtotal)}</Text></View>
-          <View style={styles.totalLine}><Text>Discount</Text><Text>{money(invoice.discountAmount)}</Text></View>
-          <View style={styles.totalLine}><Text>VAT</Text><Text>{money(invoice.vatAmount)}</Text></View>
-          <View style={styles.grandTotal}><Text>Total</Text><Text>{money(invoice.totalAmount)}</Text></View>
-        </View>
+          return (
+            <View key={item.id} style={[styles.tableRow, isFullyReturned ? styles.returnedRow : {}]}>
+              <View style={styles.item}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 4, flexWrap: "wrap" }}>
+                  <Text style={{ fontWeight: 700 }}>{item.productName}</Text>
+                  {isFullyReturned && (
+                    <Text style={{ fontSize: 7, color: "#b91c1c", backgroundColor: "#fee2e2", paddingHorizontal: 4, borderRadius: 2, fontWeight: 700 }}>
+                      Fully Returned
+                    </Text>
+                  )}
+                  {retInfo && !isFullyReturned && (
+                    <Text style={{ fontSize: 7, color: "#d97706", backgroundColor: "#fef3c7", paddingHorizontal: 4, borderRadius: 2, fontWeight: 700 }}>
+                      Partially Returned
+                    </Text>
+                  )}
+                </View>
+                <Text style={styles.muted}>SKU: {item.productCode} {item.notes ? `| Notes: ${item.notes}` : ""}</Text>
+                
+                {retInfo && retInfo.details.map((d, idx) => (
+                  <View key={idx} style={{ flexDirection: "row", alignItems: "center", gap: 3, marginTop: 2 }}>
+                    <Text style={{ fontSize: 7, fontWeight: 700, color: "#b91c1c", backgroundColor: "#fee2e2", paddingHorizontal: 3, borderRadius: 2 }}>
+                      {d.returnNumber}
+                    </Text>
+                    <Text style={{ fontSize: 8, color: "#b91c1c" }}>
+                      Returned: -{d.qty} {item.productUnit} {d.notes ? `— "${d.notes}"` : ""}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+              
+              <View style={styles.qty}>
+                {retInfo ? (
+                  <View style={{ alignItems: "flex-end" }}>
+                    <Text style={styles.strikeText}>{item.qty} {item.productUnit}</Text>
+                    <Text style={styles.returnedText}>-{retInfo.qty} {item.productUnit}</Text>
+                    <Text style={styles.netText}>{item.qty - retInfo.qty} {item.productUnit}</Text>
+                  </View>
+                ) : (
+                  <Text>{item.qty} {item.productUnit}</Text>
+                )}
+              </View>
+              
+              <View style={styles.amount}>
+                <Text>{money(item.unitPrice)}</Text>
+              </View>
+              
+              <View style={styles.amount}>
+                {retInfo ? (
+                  <View style={{ alignItems: "flex-end" }}>
+                    <Text style={styles.strikeText}>{money(item.totalPrice)}</Text>
+                    <Text style={styles.returnedText}>-{money(retInfo.totalPrice)}</Text>
+                    <Text style={styles.netText}>{money(Number(item.totalPrice) - retInfo.totalPrice)}</Text>
+                  </View>
+                ) : (
+                  <Text>{money(item.totalPrice)}</Text>
+                )}
+              </View>
+            </View>
+          );
+        })}
+
+        {(() => {
+          const totalReturned = invoice.returns
+            ? invoice.returns.reduce((sum, ret) => sum + Number(ret.totalAmount), 0)
+            : 0;
+
+          const netTotal = Number(invoice.totalAmount);
+          const originalTotal = netTotal + totalReturned;
+
+          const originalSubtotal = Number(invoice.subtotal);
+          const originalDiscountAmount = Number(invoice.discountAmount);
+          const originalVatAmount = Number(invoice.vatAmount);
+
+          return (
+            <View style={styles.totals}>
+              <View style={styles.totalLine}>
+                <Text style={styles.muted}>Original Subtotal</Text>
+                <Text>{money(originalSubtotal)}</Text>
+              </View>
+              {originalDiscountAmount > 0 && (
+                <View style={styles.totalLine}>
+                  <Text style={styles.muted}>Original Discount</Text>
+                  <Text>{money(originalDiscountAmount)}</Text>
+                </View>
+              )}
+              {originalVatAmount > 0 && (
+                <View style={styles.totalLine}>
+                  <Text style={styles.muted}>Original VAT ({invoice.vatPercent}%)</Text>
+                  <Text>{money(originalVatAmount)}</Text>
+                </View>
+              )}
+              <View style={styles.totalLine}>
+                <Text style={{ fontWeight: 700 }}>Original Total</Text>
+                <Text style={{ fontWeight: 700 }}>{money(originalTotal)}</Text>
+              </View>
+
+              {totalReturned > 0 && (
+                <>
+                  <View style={styles.totalLine}>
+                    <Text style={styles.redBold}>Total Returned (incl. VAT)</Text>
+                    <Text style={styles.redBold}>-{money(totalReturned)}</Text>
+                  </View>
+                  <View style={styles.grandTotal}>
+                    <Text>Net Invoice Value</Text>
+                    <Text>{money(netTotal)}</Text>
+                  </View>
+                </>
+              )}
+
+              {totalReturned === 0 && (
+                <View style={styles.grandTotal}>
+                  <Text>Total Amount</Text>
+                  <Text>{money(netTotal)}</Text>
+                </View>
+              )}
+
+              <View style={[styles.totalLine, { fontSize: 8 }]}><Text style={styles.muted}>Amount Paid</Text><Text>{money(invoice.paidAmount)}</Text></View>
+              <View style={[styles.totalLine, { fontSize: 9, color: "#ea580c" }]}><Text style={{ fontWeight: 700 }}>Balance Due</Text><Text style={{ fontWeight: 700 }}>{money(invoice.balanceAmount)}</Text></View>
+            </View>
+          );
+        })()}
 
         <Text style={styles.footer}>Payment Method: {invoice.paymentMethod || "-"} | {terms}</Text>
       </Page>

@@ -106,6 +106,7 @@ export function SettingsPage({
   // 2. Invoice Settings form states
   const [invoiceVat, setInvoiceVat] = useState(initialSettings.invoiceSettings.defaultVatRate);
   const [invoicePrefix, setInvoicePrefix] = useState(initialSettings.invoiceSettings.prefix);
+  const [poPrefix, setPoPrefix] = useState(initialSettings.invoiceSettings.poPrefix || "PO-");
   const [invoiceTerms, setInvoiceTerms] = useState(initialSettings.invoiceSettings.terms);
   const [colorRetail, setColorRetail] = useState(initialSettings.invoiceSettings.colors.RETAIL);
   const [colorWholesale, setColorWholesale] = useState(initialSettings.invoiceSettings.colors.WHOLESALE);
@@ -181,6 +182,7 @@ export function SettingsPage({
       await saveInvoiceSettingsAction({
         defaultVatRate: Number(invoiceVat),
         prefix: invoicePrefix,
+        poPrefix,
         terms: invoiceTerms,
         colors: {
           RETAIL: colorRetail,
@@ -188,7 +190,7 @@ export function SettingsPage({
           PROJECT: colorProject,
         },
       });
-      toast.success("Invoice VAT rate and branding configurations updated.");
+      toast.success("Invoice/PO VAT rates and numbering prefixes updated.");
     } catch (err: any) {
       toast.error(err.message || "Failed to update invoice settings.");
     } finally {
@@ -310,14 +312,16 @@ export function SettingsPage({
     }
   };
 
-  // Toggle Fiscal Year status (close/set current)
-  const handleToggleFiscalYear = async (id: string, action: "close" | "setCurrent") => {
+  // Toggle Fiscal Year status (close/set current/reopen)
+  const handleToggleFiscalYear = async (id: string, action: "close" | "setCurrent" | "reopen") => {
     try {
       setLoading(true);
       await toggleFiscalYearStatusAction(id, action);
       toast.success(
         action === "close"
           ? "Fiscal period locked and closed successfully."
+          : action === "reopen"
+          ? "Fiscal period reopened successfully."
           : "Active fiscal period context updated."
       );
       window.location.reload();
@@ -549,7 +553,7 @@ export function SettingsPage({
             </CardHeader>
 
             <CardContent className="p-0 space-y-4">
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-4 sm:grid-cols-3">
                 <div className="space-y-1.5">
                   <Label htmlFor="inv-vat" className="text-xs font-bold text-zinc-500 uppercase tracking-wide">
                     Default VAT Percentage (%) *
@@ -573,6 +577,20 @@ export function SettingsPage({
                     id="inv-prefix"
                     value={invoicePrefix}
                     onChange={(e) => setInvoicePrefix(e.target.value)}
+                    required
+                    disabled={loading || !isAdminOrOwner}
+                    className="h-10 rounded-xl font-mono"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="po-prefix" className="text-xs font-bold text-zinc-500 uppercase tracking-wide">
+                    PO Number Prefix *
+                  </Label>
+                  <Input
+                    id="po-prefix"
+                    value={poPrefix}
+                    onChange={(e) => setPoPrefix(e.target.value)}
                     required
                     disabled={loading || !isAdminOrOwner}
                     className="h-10 rounded-xl font-mono"
@@ -736,6 +754,17 @@ export function SettingsPage({
                               className="h-7 text-[10px] font-bold border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700"
                             >
                               Lock Year
+                            </Button>
+                          )}
+                          {isAdminOrOwner && fy.isClosed && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleToggleFiscalYear(fy.id, "reopen")}
+                              disabled={loading}
+                              className="h-7 text-[10px] font-bold border-emerald-200 text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700"
+                            >
+                              Reopen Year
                             </Button>
                           )}
                         </td>

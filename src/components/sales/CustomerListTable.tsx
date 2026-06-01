@@ -157,8 +157,8 @@ export function CustomerListTable({ customers: initialCustomers }: CustomerListT
               <th className="px-4 py-3">Customer</th>
               <th className="px-4 py-3">Type</th>
               <th className="px-4 py-3">Phone</th>
-              <th className="px-4 py-3 text-right">Credit Limit</th>
-              <th className="px-4 py-3 text-right">Ledger Balance</th>
+              <th className="px-4 py-3 text-right">Credit Limit (NPR)</th>
+              <th className="px-4 py-3 text-right">Ledger Balance (NPR)</th>
               <th className="px-4 py-3 text-center">Status</th>
               <th className="px-4 py-3 text-right">Actions</th>
             </tr>
@@ -188,12 +188,18 @@ export function CustomerListTable({ customers: initialCustomers }: CustomerListT
                       </Badge>
                     </td>
                     <td className="px-4 py-3 font-mono text-xs">{customer.phone ?? "-"}</td>
-                    <td className="px-4 py-3 text-right font-medium">
-                      {formatNPR(parseFloat(customer.creditLimit))}
+                    <td className="px-4 py-3 text-right">
+                      <span className="font-bold font-mono text-zinc-900 dark:text-zinc-100">
+                        {parseFloat(customer.creditLimit).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
                     </td>
-                    <td className="px-4 py-3 text-right font-bold">
-                      <span className={bal > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-zinc-600"}>
-                        {formatNPR(bal)}
+                    <td className="px-4 py-3 text-right">
+                      <span
+                        className={`font-bold font-mono ${
+                          bal > 0 ? "text-amber-600 dark:text-amber-500" : "text-zinc-400 dark:text-zinc-500 font-medium"
+                        }`}
+                      >
+                        {bal.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-center">

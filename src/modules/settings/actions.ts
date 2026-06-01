@@ -292,7 +292,7 @@ export async function createFiscalYearAction(data: {
   return { success: true };
 }
 
-export async function toggleFiscalYearStatusAction(id: string, action: "close" | "setCurrent") {
+export async function toggleFiscalYearStatusAction(id: string, action: "close" | "setCurrent" | "reopen") {
   const user = await getCurrentUser();
   if (!user || (user.role !== "SUPERADMIN" && user.role !== "OWNER")) {
     throw new Error("Access Denied. Only Super Admins and Owners can modify fiscal periods.");
@@ -308,6 +308,24 @@ export async function toggleFiscalYearStatusAction(id: string, action: "close" |
     const updatedFy = await db.fiscalYear.update({
       where: { id },
       data: { isClosed: true },
+    });
+
+    // Log Audit Log
+    await db.auditLog.create({
+      data: {
+        userId: user.id,
+        action: "UPDATE",
+        module: "FISCAL_YEAR",
+        recordId: id,
+        oldValues: oldFy as any,
+        newValues: updatedFy as any,
+        ipAddress: "Server-Action",
+      },
+    });
+  } else if (action === "reopen") {
+    const updatedFy = await db.fiscalYear.update({
+      where: { id },
+      data: { isClosed: false },
     });
 
     // Log Audit Log

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useState, useEffect, useTransition } from "react";
 import type { VendorLedgerEntrySchema } from "@/modules/purchase/types";
-import { fetchSupplierLedger } from "@/modules/purchase/actions";
+import { fetchSupplierLedger, fetchSupplierDetails } from "@/modules/purchase/actions";
 import { formatDate, formatNPR } from "@/lib/utils";
 import { downloadLedgerPDF } from "@/lib/export/ledger-pdf";
 import { downloadLedgerExcel } from "@/lib/export/ledger-excel";
@@ -37,20 +37,41 @@ export function SupplierLedgerModal({
   const [isExportingPDF, startExportPDF] = useTransition();
   const [isExportingExcel, startExportExcel] = useTransition();
 
+  const [pan, setPan] = useState(supplierPan);
+  const [phone, setPhone] = useState(supplierPhone);
+  const [address, setAddress] = useState("");
+
   const open = openProp !== undefined ? openProp : internalOpen;
   const setOpen = (v: boolean) => {
     if (onOpenChange) onOpenChange(v);
     else setInternalOpen(v);
   };
 
-  // Fetch supplier ledger dynamically
+  // Sync prop changes to state
+  useEffect(() => {
+    setPan(supplierPan);
+  }, [supplierPan]);
+
+  useEffect(() => {
+    setPhone(supplierPhone);
+  }, [supplierPhone]);
+
+  // Fetch supplier ledger & supplier contact/PAN details dynamically
   useEffect(() => {
     if (open && supplierId) {
       (async () => {
         setLoading(true);
         try {
-          const entries = await fetchSupplierLedger(supplierId);
+          const [entries, details] = await Promise.all([
+            fetchSupplierLedger(supplierId),
+            fetchSupplierDetails(supplierId),
+          ]);
           setLedgerEntries(entries);
+          if (details) {
+            setPan(details.panNumber || "");
+            setPhone(details.phone || "");
+            setAddress(details.address || "");
+          }
         } catch (err) {
           console.error("Failed to load supplier ledger", err);
         } finally {
@@ -78,7 +99,7 @@ export function SupplierLedgerModal({
           "SUPPLIER",
           dateFrom || undefined,
           dateTo || undefined,
-          { name: supplierName, panNumber: supplierPan, phone: supplierPhone }
+          { name: supplierName, panNumber: pan, phone: phone, address: address }
         );
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
@@ -101,7 +122,7 @@ export function SupplierLedgerModal({
           "SUPPLIER",
           dateFrom || undefined,
           dateTo || undefined,
-          { name: supplierName, panNumber: supplierPan, phone: supplierPhone }
+          { name: supplierName, panNumber: pan, phone: phone, address: address }
         );
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
@@ -131,11 +152,11 @@ export function SupplierLedgerModal({
           </div>
           <div>
             <p className="text-zinc-500 uppercase font-semibold mb-0.5">PAN Number</p>
-            <p className="font-mono font-semibold text-sm">{supplierPan || "—"}</p>
+            <p className="font-mono font-semibold text-sm">{pan || "—"}</p>
           </div>
           <div>
             <p className="text-zinc-500 uppercase font-semibold mb-0.5">Phone Contact</p>
-            <p className="font-semibold text-sm">{supplierPhone || "—"}</p>
+            <p className="font-semibold text-sm">{phone || "—"}</p>
           </div>
         </div>
 
@@ -220,3 +241,5 @@ export function SupplierLedgerModal({
     </Dialog>
   );
 }
+
+export default SupplierLedgerModal;

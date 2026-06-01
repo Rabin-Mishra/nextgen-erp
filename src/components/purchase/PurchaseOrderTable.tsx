@@ -2,18 +2,20 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/shared/DataTable";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { PurchaseOrderSchema } from "@/modules/purchase/types";
-import { cancelPurchaseOrder } from "@/modules/purchase/actions";
+import { cancelPurchaseOrder, deletePurchaseOrder, submitPurchaseOrder } from "@/modules/purchase/actions";
 import { ReceiveGoodsModal } from "./ReceiveGoodsModal";
 import { RecordPaymentModal } from "./RecordPaymentModal";
 import { SupplierLedgerModal } from "./SupplierLedgerModal";
+import { EditPurchaseOrderModal } from "./EditPurchaseOrderModal";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { formatDate, formatNPR } from "@/lib/utils";
-import { Eye, CheckSquare, BookOpen, XCircle, ShoppingBag, CreditCard } from "lucide-react";
+import { Eye, CheckSquare, BookOpen, XCircle, ShoppingBag, CreditCard, Pencil, Trash2, Loader2, Send } from "lucide-react";
 import { DualDateDisplay } from "@/components/shared/DualDateDisplay";
 
 interface PurchaseOrderTableProps {
@@ -30,12 +32,35 @@ export function PurchaseOrderTable({ orders, userId }: PurchaseOrderTableProps) 
   const [showDetail, setShowDetail] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
 
+  // Edit & Delete State
+  const [showEdit, setShowEdit] = useState(false);
+  const [showDelete, setShowDelete] = useState(false);
+  const [poToDelete, setPoToDelete] = useState<PurchaseOrderSchema | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+
   const statusColors: Record<string, string> = {
     DRAFT: "bg-zinc-150 text-zinc-800 border-zinc-300",
     ORDERED: "bg-blue-50 text-blue-700 border-blue-200",
     PARTIAL: "bg-amber-50 text-amber-700 border-amber-250",
     RECEIVED: "bg-emerald-50 text-emerald-700 border-emerald-250",
     CANCELLED: "bg-rose-50 text-rose-700 border-rose-200",
+  };
+
+  const handleSubmit = async (id: string, poNumber: string) => {
+    if (!confirm(`Are you sure you want to submit Purchase Order ${poNumber}? This will lock the draft and change its status to ORDERED.`)) {
+      return;
+    }
+    setActionLoading(true);
+    try {
+      await submitPurchaseOrder(id, userId);
+      toast.success(`Purchase Order ${poNumber} submitted successfully.`);
+      router.refresh();
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Failed to submit Purchase Order");
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   const handleCancel = async (id: string, poNumber: string) => {
@@ -51,6 +76,23 @@ export function PurchaseOrderTable({ orders, userId }: PurchaseOrderTableProps) 
       alert(err.message || "Failed to cancel Purchase Order");
     } finally {
       setActionLoading(false);
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!poToDelete) return;
+    setDeleteLoading(true);
+    try {
+      await deletePurchaseOrder(poToDelete.id, userId);
+      toast.success(`Purchase Order ${poToDelete.poNumber} successfully deleted.`);
+      setShowDelete(false);
+      setPoToDelete(null);
+      router.refresh();
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Failed to delete Purchase Order");
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
@@ -123,6 +165,30 @@ export function PurchaseOrderTable({ orders, userId }: PurchaseOrderTableProps) 
             <Eye size={13} /> View
           </Button>
 
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setSelectedPO(row.original);
+              setShowEdit(true);
+            }}
+            className="h-8 border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 gap-1 rounded-md text-xs font-semibold"
+          >
+            <Pencil size={13} /> Edit
+          </Button>
+
+          {row.original.status === "DRAFT" && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleSubmit(row.original.id, row.original.poNumber)}
+              disabled={actionLoading}
+              className="h-8 border-emerald-250 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 gap-1 rounded-md text-xs font-semibold"
+            >
+              <Send size={13} /> Submit Order
+            </Button>
+          )}
+
           {["ORDERED", "PARTIAL"].includes(row.original.status) && (
             <Button
               variant="outline"
@@ -137,7 +203,7 @@ export function PurchaseOrderTable({ orders, userId }: PurchaseOrderTableProps) 
             </Button>
           )}
 
-          {["ORDERED", "PARTIAL"].includes(row.original.status) && parseFloat(row.original.balance) > 0 && (
+          {["ORDERED", "PARTIAL", "RECEIVED"].includes(row.original.status) && parseFloat(row.original.balance) > 0 && (
             <Button
               variant="outline"
               size="sm"
@@ -172,6 +238,30 @@ export function PurchaseOrderTable({ orders, userId }: PurchaseOrderTableProps) 
               className="h-8 border-rose-250 bg-rose-50 text-rose-600 hover:bg-rose-100 gap-1 rounded-md text-xs font-semibold"
             >
               <XCircle size={13} /> Cancel
+            </Button>
+          )}
+
+          {row.original.status === "CANCELLED" ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setPoToDelete(row.original);
+                setShowDelete(true);
+              }}
+              className="h-8 border-rose-250 bg-rose-50 text-rose-600 hover:bg-rose-100 gap-1 rounded-md text-xs font-semibold"
+            >
+              <Trash2 size={13} /> Delete
+            </Button>
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              disabled
+              title="Only cancelled purchase orders can be deleted"
+              className="h-8 border-zinc-200 bg-zinc-50 text-zinc-400 gap-1 rounded-md text-xs font-semibold cursor-not-allowed opacity-50"
+            >
+              <Trash2 size={13} /> Delete
             </Button>
           )}
         </div>
@@ -368,6 +458,59 @@ export function PurchaseOrderTable({ orders, userId }: PurchaseOrderTableProps) 
               className="border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50 shadow-sm"
             >
               Close Details
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Purchase Order Modal */}
+      {selectedPO && showEdit && (
+        <EditPurchaseOrderModal
+          isOpen={showEdit}
+          onClose={() => {
+            setShowEdit(false);
+            setSelectedPO(null);
+          }}
+          onSuccess={() => router.refresh()}
+          po={selectedPO}
+          userId={userId}
+        />
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={showDelete} onOpenChange={(val) => !val && setShowDelete(false)}>
+        <DialogContent className="max-w-md rounded-2xl p-6 bg-white text-zinc-900 border border-zinc-200 shadow-xl">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold text-rose-600 flex items-center gap-2">
+              <Trash2 className="h-5 w-5 text-rose-500 animate-pulse" />
+              Delete Purchase Order
+            </DialogTitle>
+            <p className="text-xs text-zinc-400 mt-1">
+              Verify database record removal of this cancelled Purchase Order. This cannot be undone.
+            </p>
+          </DialogHeader>
+
+          <div className="py-4 text-sm text-zinc-600">
+            Are you sure you want to delete Purchase Order <strong className="text-zinc-950">"{poToDelete?.poNumber}"</strong>? This will permanently erase this transaction record and all its items from the database.
+          </div>
+
+          <DialogFooter className="pt-4 border-t border-zinc-150 flex gap-2 justify-end w-full">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setShowDelete(false)}
+              className="h-10 px-4 rounded-xl text-zinc-650 font-bold border-zinc-200"
+              disabled={deleteLoading}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleConfirmDelete}
+              className="h-10 px-5 rounded-xl font-bold bg-rose-600 hover:bg-rose-700 text-white flex items-center gap-2 shadow-md shadow-rose-600/20 border-none"
+              disabled={deleteLoading}
+            >
+              {deleteLoading && <Loader2 className="h-4 w-4 animate-spin" />}
+              Confirm Delete
             </Button>
           </DialogFooter>
         </DialogContent>

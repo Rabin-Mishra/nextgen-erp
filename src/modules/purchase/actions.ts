@@ -21,7 +21,8 @@ import {
   type UpdatePurchaseOrderInput,
   type UpdateSupplierInput,
 } from "./types";
-import { getPOById, getSuppliers, getActiveProducts, getVendorLedger } from "./queries";
+import { getSystemSettings } from "@/lib/settings-store";
+import { getPOById, getSuppliers, getActiveProducts, getVendorLedger, getSupplierById } from "./queries";
 
 function toDate(value: string | Date) {
   return value instanceof Date ? value : new Date(value);
@@ -39,7 +40,7 @@ function normalizePaymentMode(method: RecordPurchasePaymentInput["paymentMethod"
 async function getLatestSupplierBalance(tx: any, supplierId: string) {
   const latest = await tx.ledgerEntry.findFirst({
     where: { partyType: "SUPPLIER", partyId: supplierId },
-    orderBy: [{ entryDate: "desc" }, { createdAt: "desc" }],
+    orderBy: { createdAt: "desc" },
   });
   return latest ? toDecimal(latest.runningBalance) : new Decimal(0);
 }
@@ -81,7 +82,10 @@ export async function createPurchaseOrder(data: CreatePurchaseOrderInput, userId
   const activeUserId = await resolveActiveUserId(db, userId);
 
   const result = await db.$transaction(async (tx) => {
-    const poNumber = await nextCode(tx, "purchaseOrder", "poNumber", "PO");
+    const settings = getSystemSettings();
+    const rawPrefix = settings?.invoiceSettings?.poPrefix || "PO";
+    const prefix = rawPrefix.endsWith("-") ? rawPrefix.slice(0, -1) : rawPrefix;
+    const poNumber = await nextCode(tx, "purchaseOrder", "poNumber", prefix);
     const subtotal = parsed.items.reduce(
       (sum, item) => sum.plus(toDecimal(item.unitPrice).times(item.orderedQty)),
       new Decimal(0)
@@ -145,12 +149,45 @@ export async function updatePurchaseOrder(id: string, data: UpdatePurchaseOrderI
 
   const po = await db.purchaseOrder.findUnique({ where: { id } });
   if (!po) throw new Error("PO not found");
-  if (po.status !== "DRAFT") throw new Error("Can only update draft POs");
 
   const result = await db.$transaction(async (tx) => {
+    // 1. If items are updated (only allowed for DRAFT POs)
+    if (parsed.items && parsed.items.length > 0) {
+      if (po.status !== "DRAFT") {
+        throw new Error("Can only edit items of a draft purchase order");
+      }
+
+      for (const item of parsed.items) {
+        const unitPrice = item.unitPrice !== undefined ? toDecimal(item.unitPrice) : undefined;
+        const currentItem = await tx.purchaseOrderItem.findUnique({
+          where: { id: item.id }
+        });
+        
+        if (currentItem) {
+          const activePrice = unitPrice ?? toDecimal(currentItem.unitPrice);
+          const totalPrice = activePrice.times(item.orderedQty);
+          
+          await tx.purchaseOrderItem.update({
+            where: { id: item.id },
+            data: {
+              orderedQty: item.orderedQty,
+              unitPrice: activePrice,
+              totalPrice,
+            }
+          });
+        }
+      }
+    }
+
+    // 2. Refetch items to get correct subtotal
+    const refreshedItems = await tx.purchaseOrderItem.findMany({
+      where: { purchaseOrderId: id }
+    });
+    const subtotal = refreshedItems.reduce((sum: Decimal, item: any) => sum.plus(new Decimal(item.totalPrice)), new Decimal(0));
+
     const discountAmount = parsed.discountAmount !== undefined ? toDecimal(parsed.discountAmount) : toDecimal(po.discountAmount);
     const taxAmount = parsed.taxAmount !== undefined ? toDecimal(parsed.taxAmount) : toDecimal(po.taxAmount);
-    const totalAmount = toDecimal(po.subtotal).minus(discountAmount).plus(taxAmount);
+    const totalAmount = subtotal.minus(discountAmount).plus(taxAmount);
 
     const updated = await tx.purchaseOrder.update({
       where: { id },
@@ -159,6 +196,7 @@ export async function updatePurchaseOrder(id: string, data: UpdatePurchaseOrderI
         orderDate: parsed.orderDate ? toDate(parsed.orderDate) : po.orderDate,
         expectedDate: parsed.expectedDate ? toDate(parsed.expectedDate) : po.expectedDate,
         notes: parsed.notes !== undefined ? parsed.notes : po.notes,
+        subtotal,
         discountAmount,
         taxAmount,
         totalAmount,
@@ -306,15 +344,19 @@ export async function receiveGoods(data: ReceiveGoodsInput, userId: string) {
       receivedValue = receivedValue.plus(activePrice.times(receiveItem.receivedQty));
     }
 
+    const subtotalVal = receivedValue;
+    const vatAmountVal = parsed.applyVat ? subtotalVal.times(0.13) : new Decimal(0);
+    const totalAmountVal = subtotalVal.plus(vatAmountVal);
+
     const refreshedItems = await tx.purchaseOrderItem.findMany({ where: { purchaseOrderId: po.id } });
     const allReceived = refreshedItems.every((item: any) => item.receivedQty >= item.orderedQty);
     const newStatus = allReceived ? "RECEIVED" : "PARTIAL";
 
     const newSubtotal = refreshedItems.reduce((sum: Decimal, item: any) => sum.plus(new Decimal(item.unitPrice).times(item.orderedQty)), new Decimal(0));
-    const newTax = newSubtotal.times(0.13);
+    const newTax = parsed.applyVat ? newSubtotal.times(0.13) : new Decimal(0);
     const newTotal = newSubtotal.plus(newTax);
 
-    if (receivedValue.greaterThan(0)) {
+    if (totalAmountVal.greaterThan(0)) {
       const previousBalance = await getLatestSupplierBalance(tx, po.supplierId);
       await tx.ledgerEntry.create({
         data: {
@@ -322,11 +364,11 @@ export async function receiveGoods(data: ReceiveGoodsInput, userId: string) {
           partyType: "SUPPLIER",
           partyId: po.supplierId,
           entryType: "CREDIT",
-          amount: receivedValue,
+          amount: totalAmountVal,
           referenceType: "PURCHASE",
           referenceId: po.id,
-          description: `Goods received from PO ${po.poNumber}`,
-          runningBalance: previousBalance.plus(receivedValue),
+          description: `Goods received PO-${po.poNumber} (Subtotal: NPR ${subtotalVal.toNumber()}, VAT: NPR ${vatAmountVal.toNumber()})`,
+          runningBalance: previousBalance.plus(totalAmountVal),
           channelType: "GENERAL",
           createdBy: activeUserId,
         },
@@ -546,6 +588,10 @@ export async function fetchSupplierLedger(supplierId: string) {
   return getVendorLedger(supplierId);
 }
 
+export async function fetchSupplierDetails(supplierId: string) {
+  return getSupplierById(supplierId);
+}
+
 export async function deleteSupplier(id: string, userId: string) {
   const db = await getDb();
   const activeUserId = await resolveActiveUserId(db, userId);
@@ -568,6 +614,38 @@ export async function deleteSupplier(id: string, userId: string) {
         module: "SUPPLIER",
         recordId: id,
         oldValues: supplier as any,
+      },
+    });
+
+    return deleted;
+  });
+
+  revalidatePath("/purchase");
+  return serializeForClient(result);
+}
+
+export async function deletePurchaseOrder(id: string, userId: string) {
+  const db = await getDb();
+  const activeUserId = await resolveActiveUserId(db, userId);
+
+  const po = await db.purchaseOrder.findUnique({ where: { id } });
+  if (!po) throw new Error("Purchase order not found");
+
+  if (po.status !== "CANCELLED") {
+    throw new Error("Only cancelled purchase orders can be deleted.");
+  }
+
+  const result = await db.$transaction(async (tx) => {
+    await tx.purchaseOrderItem.deleteMany({ where: { purchaseOrderId: id } });
+    const deleted = await tx.purchaseOrder.delete({ where: { id } });
+
+    await tx.auditLog.create({
+      data: {
+        userId: activeUserId,
+        action: "DELETE",
+        module: "PURCHASE",
+        recordId: id,
+        oldValues: po as any,
       },
     });
 

@@ -6,6 +6,7 @@ import { Badge } from "../ui/badge";
 import type { InventoryItemSchema } from "@/modules/inventory/types";
 import { Button } from "../ui/button";
 import AdjustStockModal from "./AdjustStockModal";
+import EditProductModal from "./EditProductModal";
 import { useState } from "react";
 import PaginationControls from './InventoryTableControls';
 
@@ -15,6 +16,7 @@ interface InventoryTableProps {
 
 export function InventoryTable({ items }: InventoryTableProps) {
   const [selectedStockId, setSelectedStockId] = useState<string | null>(null);
+  const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
 
   const columns: ColumnDef<InventoryItemSchema, any>[] = [
     {
@@ -30,7 +32,11 @@ export function InventoryTable({ items }: InventoryTableProps) {
     {
       accessorKey: "brand",
       header: "Brand",
-      cell: ({ row }) => row.original.brand ?? "—",
+      cell: ({ row }) => (
+        <span className="font-bold text-zinc-950 dark:text-zinc-50">
+          {row.original.brand ?? "—"}
+        </span>
+      ),
     },
     {
       accessorKey: "warehouse",
@@ -39,16 +45,29 @@ export function InventoryTable({ items }: InventoryTableProps) {
     {
       accessorKey: "quantity",
       header: "Available",
-      cell: ({ row }) => <span className="font-semibold">{row.original.quantity}</span>,
+      cell: ({ row }) => (
+        <span className="font-bold font-mono text-emerald-600 dark:text-emerald-400">
+          {row.original.quantity}
+        </span>
+      ),
     },
     {
       accessorKey: "reservedQty",
       header: "Reserved",
-      cell: ({ row }) => row.original.reservedQty,
+      cell: ({ row }) => (
+        <span className="font-bold font-mono text-amber-600 dark:text-amber-500">
+          {row.original.reservedQty}
+        </span>
+      ),
     },
     {
       accessorKey: "reorderLevel",
       header: "Reorder Level",
+      cell: ({ row }) => (
+        <span className="font-bold font-mono text-rose-500 dark:text-rose-400">
+          {row.original.reorderLevel}
+        </span>
+      ),
     },
     {
       accessorKey: "status",
@@ -63,9 +82,12 @@ export function InventoryTable({ items }: InventoryTableProps) {
       id: 'actions',
       header: 'Actions',
       cell: ({ row }) => (
-        <div className="flex items-center gap-2">
-          <Button size="sm" variant="ghost" onClick={() => setSelectedStockId(row.original.id)}>
+        <div className="flex items-center gap-1.5">
+          <Button size="sm" variant="ghost" onClick={() => setSelectedStockId(row.original.id)} className="h-8 px-2.5 rounded-lg text-zinc-600 hover:text-zinc-950 font-bold border border-zinc-150">
             Adjust
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => setSelectedProductId(row.original.productId)} className="h-8 px-2.5 rounded-lg text-amber-600 hover:text-amber-700 hover:bg-amber-50 font-bold border border-amber-200">
+            Edit
           </Button>
         </div>
       ),
@@ -95,6 +117,10 @@ export function InventoryTable({ items }: InventoryTableProps) {
 
       {selectedStockId && (
         <AdjustStockModal initialStockId={selectedStockId} stocks={items} open={true} onOpenChange={(o) => { if (!o) setSelectedStockId(null); }} />
+      )}
+
+      {selectedProductId && (
+        <EditProductModal productId={selectedProductId} open={true} onOpenChange={(o) => { if (!o) setSelectedProductId(null); }} />
       )}
     </>
   );

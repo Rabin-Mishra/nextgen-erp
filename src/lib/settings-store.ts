@@ -13,6 +13,7 @@ export interface BusinessInfo {
 export interface InvoiceSettings {
   defaultVatRate: number; // e.g. 13 for 13%
   prefix: string; // e.g. "INV-"
+  poPrefix: string; // e.g. "PO-"
   terms: string;
   colors: {
     RETAIL: string;
@@ -40,6 +41,7 @@ const defaultSettings: SystemSettings = {
   invoiceSettings: {
     defaultVatRate: 13,
     prefix: "INV-",
+    poPrefix: "PO-",
     terms: "1. 50% advance payment required for project initiation.\n2. Goods once sold are not returnable without authorization.\n3. All disputes are subject to the jurisdiction of Jhapa, Nepal.",
     colors: {
       RETAIL: "#2563eb", // Blue

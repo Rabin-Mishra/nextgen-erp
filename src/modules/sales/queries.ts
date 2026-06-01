@@ -35,7 +35,7 @@ function toDecimal(value: Decimal.Value | null | undefined) {
   return new Decimal(value ?? 0);
 }
 
-function mapInvoice(invoice: any, payments: any[] = []) {
+function mapInvoice(invoice: any, payments: any[] = [], returns: any[] = []) {
   return salesInvoiceSchema.parse({
     id: invoice.id,
     invoiceNumber: invoice.invoiceNumber,
@@ -81,6 +81,23 @@ function mapInvoice(invoice: any, payments: any[] = []) {
       paymentMethod: payment.paymentMethod,
       paymentDate: payment.paymentDate.toISOString(),
       notes: payment.notes,
+    })),
+    returns: returns.map((ret) => ({
+      id: ret.id,
+      returnNumber: ret.returnNumber,
+      returnDate: ret.returnDate.toISOString(),
+      totalAmount: ret.totalAmount.toString(),
+      notes: ret.notes,
+      items: ret.items.map((item: any) => ({
+        id: item.id,
+        productId: item.productId,
+        productCode: item.product.code,
+        productName: item.product.name,
+        productUnit: item.product.unit,
+        qty: item.qty,
+        unitPrice: item.unitPrice.toString(),
+        totalPrice: item.totalPrice.toString(),
+      })),
     })),
     createdAt: invoice.createdAt.toISOString(),
   });
@@ -159,7 +176,15 @@ export async function getInvoiceById(id: string) {
     orderBy: { paymentDate: "asc" },
   });
 
-  return serializeForClient(mapInvoice(invoice, payments));
+  const returns = await db.salesReturn.findMany({
+    where: { invoiceId: id },
+    include: {
+      items: { include: { product: true } },
+    },
+    orderBy: { createdAt: "asc" },
+  });
+
+  return serializeForClient(mapInvoice(invoice, payments, returns));
 }
 
 export async function getSalesStats(dateRange: SalesDateRange = {}) {
@@ -235,7 +260,7 @@ export async function getCustomers(search?: string, type?: CustomerType, page = 
     customers.map(async (customer) => {
       const latest = await db.ledgerEntry.findFirst({
         where: { partyType: "CUSTOMER", partyId: customer.id },
-        orderBy: [{ entryDate: "desc" }, { createdAt: "desc" }],
+        orderBy: { createdAt: "desc" },
       });
       return {
         ...mapCustomer(customer),
@@ -340,7 +365,7 @@ export async function getCustomerLedger(customerId: string, dateFrom?: Date, dat
 
   const entries = await db.ledgerEntry.findMany({
     where,
-    orderBy: [{ entryDate: "asc" }, { createdAt: "asc" }],
+    orderBy: { createdAt: "asc" },
   });
 
   const mapped = entries.map((entry) => {
@@ -358,7 +383,21 @@ export async function getCustomerLedger(customerId: string, dateFrom?: Date, dat
       entryType: entry.entryType,
     });
   });
-  return serializeForClient(mapped);
+
+  const sorted = mapped.sort((a, b) => {
+    const dA = new Date(a.entryDate);
+    const dB = new Date(b.entryDate);
+    const timeA = new Date(dA.getFullYear(), dA.getMonth(), dA.getDate()).getTime();
+    const timeB = new Date(dB.getFullYear(), dB.getMonth(), dB.getDate()).getTime();
+    if (timeA !== timeB) {
+      return timeA - timeB;
+    }
+    const indexA = entries.findIndex((e) => e.id === a.id);
+    const indexB = entries.findIndex((e) => e.id === b.id);
+    return indexA - indexB;
+  });
+
+  return serializeForClient(sorted);
 }
 
 export async function getSalesReturns(page = 1, pageSize = 25) {
@@ -405,7 +444,7 @@ export async function getInvoiceFormLookups() {
     customers.map(async (customer) => {
       const latest = await db.ledgerEntry.findFirst({
         where: { partyType: "CUSTOMER", partyId: customer.id },
-        orderBy: [{ entryDate: "desc" }, { createdAt: "desc" }],
+        orderBy: { createdAt: "desc" },
       });
       return [customer.id, latest?.runningBalance?.toString() ?? customer.openingBalance.toString()] as const;
     })

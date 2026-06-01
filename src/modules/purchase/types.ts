@@ -31,6 +31,15 @@ export const updatePurchaseOrderSchema = z.object({
   notes: z.string().nullable().optional(),
   discountAmount: moneyInput.optional(),
   taxAmount: moneyInput.optional(),
+  items: z
+    .array(
+      z.object({
+        id: z.string().min(1),
+        orderedQty: z.number().int().positive(),
+        unitPrice: moneyInput.optional(),
+      })
+    )
+    .optional(),
 });
 
 export type UpdatePurchaseOrderInput = z.infer<typeof updatePurchaseOrderSchema>;
@@ -58,6 +67,7 @@ export const receiveGoodsSchema = z.object({
     .min(1, "At least one item must be received"),
   warehouseId: z.string().min(1, "Warehouse is required"),
   notes: z.string().optional(),
+  applyVat: z.boolean().optional(),
 });
 
 export type ReceiveGoodsInput = z.infer<typeof receiveGoodsSchema>;

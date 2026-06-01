@@ -3,6 +3,7 @@
 import { getCurrentUser } from "@/auth/session";
 import { getDb } from "@/lib/db";
 import { nextCode, serializeForClient } from "@/lib/utils";
+import { getSystemSettings } from "../../lib/settings-store";
 import Decimal from "decimal.js";
 import type { ProjectStatus } from "./types";
 import {
@@ -59,7 +60,7 @@ async function resolveUserId(db: any, userId?: string): Promise<string> {
 async function latestCustomerBalance(tx: any, customerId: string) {
   const latest = await tx.ledgerEntry.findFirst({
     where: { partyType: "CUSTOMER", partyId: customerId },
-    orderBy: [{ entryDate: "desc" }, { createdAt: "desc" }],
+    orderBy: { createdAt: "desc" },
   });
   if (latest) return toDecimal(latest.runningBalance);
 
@@ -222,7 +223,10 @@ export async function issueSupplyToProject(data: IssueSupplyInput, userId?: stri
   if (!project) throw new Error("Project not found");
 
   const result = await db.$transaction(async (tx) => {
-    const invoiceNumber = await nextCode(tx, "salesInvoice", "invoiceNumber", "INV");
+    const settings = getSystemSettings();
+    const rawPrefix = settings?.invoiceSettings?.prefix || "INV";
+    const prefix = rawPrefix.endsWith("-") ? rawPrefix.slice(0, -1) : rawPrefix;
+    const invoiceNumber = await nextCode(tx, "salesInvoice", "invoiceNumber", prefix);
     const invoiceDate = new Date();
 
     let subtotal = new Decimal(0);

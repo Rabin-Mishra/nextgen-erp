@@ -449,3 +449,132 @@ export async function deleteBrand(id: string) {
   return serializeForClient(deleted);
 }
 
+export async function fetchProductDetails(productId: string) {
+  const db = await getDb();
+  const product = await db.product.findUnique({
+    where: { id: productId },
+    include: {
+      category: true,
+      brand: true,
+      variants: {
+        where: { isActive: true },
+        orderBy: { effectiveDate: "desc" },
+        take: 1,
+      },
+    },
+  });
+
+  if (!product) {
+    throw new Error("Product not found");
+  }
+
+  return serializeForClient(product);
+}
+
+export async function updateInventoryProduct(productId: string, data: {
+  name: string;
+  categoryId: string;
+  brandId: string;
+  unit: any;
+  description?: string;
+  minStockLevel: number;
+  reorderLevel: number;
+  supplierId?: string;
+  purchasePrice?: number | string;
+  retailPrice?: number | string;
+  wholesalePrice?: number | string;
+  projectPrice?: number | string;
+}) {
+  const db = await getDb();
+  const userId = await resolveUserId(db);
+
+  const product = await db.product.findUnique({
+    where: { id: productId },
+    include: {
+      variants: {
+        where: { isActive: true },
+      },
+    },
+  });
+
+  if (!product) {
+    throw new Error("Product not found");
+  }
+
+  const result = await db.$transaction(async (tx) => {
+    // 1. Update Product Details
+    const updatedProduct = await tx.product.update({
+      where: { id: productId },
+      data: {
+        name: data.name.trim(),
+        categoryId: data.categoryId,
+        brandId: data.brandId,
+        unit: data.unit,
+        description: data.description?.trim() || null,
+        minStockLevel: Number(data.minStockLevel),
+        reorderLevel: Number(data.reorderLevel),
+      },
+    });
+
+    // 2. Handle Variant / Pricing updates
+    if (data.supplierId) {
+      const activeVariant = product.variants[0];
+      const purchasePrice = new Decimal(data.purchasePrice ?? 0);
+      const retailPrice = new Decimal(data.retailPrice ?? 0);
+      const wholesalePrice = new Decimal(data.wholesalePrice ?? 0);
+      const projectPrice = new Decimal(data.projectPrice ?? 0);
+
+      if (activeVariant) {
+        // Update existing variant details
+        await tx.productVariant.update({
+          where: { id: activeVariant.id },
+          data: {
+            supplierId: data.supplierId,
+            purchasePrice,
+            retailPrice,
+            wholesalePrice,
+            projectPrice,
+          },
+        });
+      } else {
+        // Create a new variant if none existed previously (e.g. they skipped Step 2!)
+        await tx.productVariant.create({
+          data: {
+            productId,
+            supplierId: data.supplierId,
+            purchasePrice,
+            retailPrice,
+            wholesalePrice,
+            projectPrice,
+            effectiveDate: new Date(),
+            isActive: true,
+          },
+        });
+      }
+    }
+
+    // 3. Log Audit Trail
+    await tx.auditLog.create({
+      data: {
+        userId,
+        action: "UPDATE",
+        module: "INVENTORY",
+        recordId: productId,
+        newValues: {
+          id: productId,
+          name: data.name,
+          minStockLevel: data.minStockLevel,
+          reorderLevel: data.reorderLevel,
+          hasVariant: !!data.supplierId,
+        },
+      },
+    });
+
+    return updatedProduct;
+  });
+
+  revalidatePath("/inventory");
+  return serializeForClient(result);
+}
+
+

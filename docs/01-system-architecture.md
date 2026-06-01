@@ -127,26 +127,26 @@ sequenceDiagram
   User->>Browser: Click "Confirm Invoice"
   Browser->>Proxy: Submit Form Data via HTTP POST
   Proxy->>Proxy: Verify JWT Session Cookie
-  Proxy-->>Browser: Redirect if unauthenticated (401)
+  Proxy-->>Browser: Redirect if unauthenticated - 401
   Proxy->>RSC: Authorized request passed
-  RSC->>Action: createInvoice(data)
+  RSC->>Action: createInvoice data
   Action->>Action: Zod parse & validate fields
-  Action->>Action: Check RBAC (role: OWNER/SALES_STAFF)
-  Action->>Prisma: $transaction(async tx => {...})
-  Prisma->>DB: BEGIN TRANSACTION (isolation: Read Committed)
+  Action->>Action: Check RBAC - role OWNER/SALES_STAFF
+  Action->>Prisma: $transaction async tx => ...
+  Prisma->>DB: BEGIN TRANSACTION - isolation Read Committed
   DB->>Prisma: Transaction open success
   Prisma->>DB: INSERT INTO sales_invoices
   Prisma->>DB: INSERT INTO sales_invoice_items
-  Prisma->>DB: UPDATE inventory_stock (decrement quantities)
-  Prisma->>DB: INSERT INTO stock_transactions (type: SALE_OUT)
-  Prisma->>DB: INSERT INTO ledger_entries (DEBIT customer balance)
-  Prisma->>DB: INSERT INTO cash_book_entries (if payment made)
+  Prisma->>DB: UPDATE inventory_stock - decrement quantities
+  Prisma->>DB: INSERT INTO stock_transactions - type SALE_OUT
+  Prisma->>DB: INSERT INTO ledger_entries - DEBIT customer balance
+  Prisma->>DB: INSERT INTO cash_book_entries - if payment made
   Prisma->>DB: COMMIT
   DB->>Prisma: Transaction successfully written
   Prisma->>Action: Return serialized invoice object
-  Action->>Audit: Log AuditLog entry (module: SALES, action: CREATE)
-  Action->>RSC: Return { success: true, data: invoice }
-  RSC->>Browser: Trigger revalidatePath('/sales') & UI toast
+  Action->>Audit: Log AuditLog entry - module SALES - action CREATE
+  Action->>RSC: Return success true - data invoice
+  RSC->>Browser: Trigger revalidatePath /sales & UI toast
   Browser->>User: Display invoice preview & PDF download option
 ```
 
@@ -186,18 +186,18 @@ Every transaction affecting cash, receivables, payables, or physical stock must 
 ```mermaid
 flowchart LR
   subgraph "Sales Return Event"
-    SR[Sales Return Registered\nINV-0001 / SRN-0001\nTotal: NPR 4,689.50]
+    SR[Sales Return Registered\nINV-0001 / SRN-0001\nTotal NPR 4689]
   end
   subgraph "Stock Inbound Impact"
-    ST[StockTransaction\ntype: RETURN_IN\nqty: +5 bags]
-    IS[InventoryStock\nquantity: incremented available]
+    ST[StockTransaction\ntype RETURN_IN\nqty +5 bags]
+    IS[InventoryStock\nquantity incremented available]
     ST --> IS
   end
   subgraph "Ledger Credit Bookkeeping"
-    LD1[LedgerEntry CREDIT\nParty: Customer\nNPR 4,689.50\nchannel: WHOLESALE]
+    LD1[LedgerEntry CREDIT\nParty Customer\nNPR 4689\nchannel WHOLESALE]
   end
   subgraph "Cash Outflow Impact"
-    CB[CashBookEntry\ntype: PAID (Refunded)\nNPR 4,689.50]
+    CB[CashBookEntry\ntype PAID - Refunded\nNPR 4689]
   end
   subgraph "Adjusted Invoice Totals"
     SI[SalesInvoice DB Record\nTotal amount updated\nBalance due updated]
@@ -227,21 +227,21 @@ flowchart LR
 
 Our architectural stack has been chosen to optimize development speed, type safety, and real-time computation without compromising financial calculations.
 
-| Technology | Version | Purpose | Why Chosen | Alternative Considered |
-|-----------|---------|---------|------------|----------------------|
-| **Next.js** | 16.0.0 | Full-stack framework | App Router for native React Server Components, fast server-side reports, and edge-ready API routes. | Vite + Express (rejected due to complex deployment and lack of native server actions). |
-| **TypeScript** | 5.0.0+ | Static type safety | Prevents type mismatch errors across invoices, quantities, and roles prior to runtime compilation. | Vanilla JavaScript (rejected due to vulnerability to bugs in financial calculations). |
-| **Prisma** | 7.8.0 | Object-Relational Mapper (ORM) | Multi-table database transactions (`$transaction`), auto-generated TypeScript schema types, and automatic seed hooks. | Drizzle ORM (rejected due to raw SQL complexity for complex double-entry accounting). |
-| **PostgreSQL** | 16.0 | Primary relational database | Solid relational integrity, support for concurrent transactions, and robust indexing. | MySQL (rejected due to weaker transaction handling and strict constraint limits). |
-| **NextAuth.js** | 5.0.0-beta | Authentication engine | Seamless Next.js middleware routing security, JWT token encryption, and native database session adapters. | Auth0 / Clerk (rejected due to external network dependency and pricing plans). |
-| **TailwindCSS** | 4.0.0+ | Styling framework | Utility-first approach ensures highly responsive layouts and eliminates heavy stylesheets. | CSS Modules (rejected due to slower prototyping speed and lack of consistent design tokens). |
-| **shadcn/ui** | Latest | UI Component library | Accessible, fully styled raw components using Radix UI primitives. | Material UI / Ant Design (rejected due to heavy bundle size and difficult styling overrides). |
-| **Zod** | Latest | Runtime schema validation | Dual-purpose: provides client-side form validation feedback and acts as a strict guard at the entrance of Server Actions. | Yup (rejected due to poorer integration with TypeScript type inference). |
-| **React PDF** | Latest | PDF generation | Compiles React components directly into binary PDF blobs within Server Actions for reliable downloading. | html2pdf / Puppeteer (rejected due to heavy server resource usage and unstable CSS margins). |
-| **xlsx (SheetJS)** | Latest | Excel exports | Direct generation of clean excel files of client ledgers and profit & loss sheets on the server. | CSV-only exports (rejected due to poor business owner experience). |
-| **Resend** | Latest | Transactional Email API | Extremely high email delivery rates and simple API key integration for secure OTP delivery. | Custom SMTP server (rejected due to poor IP reputation and high spam delivery rate). |
-| **Supabase** | - | Database Hosting & Storage | High availability PostgreSQL instances, automated transaction backups, and visual explorer. | AWS RDS (rejected due to complex pricing and high management overhead). |
-| **nepali-date-converter** | Latest | BS/AD Calendar conversions | Converts Gregorian dates to Nepali Bikram Sambat (BS) calendar for local business reporting. | Custom date math (rejected due to high leap-year calculation error risks). |
+| Technology                | Version    | Purpose                        | Why Chosen                                                                                                                | Alternative Considered                                                                        |
+| ------------------------- | ---------- | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| **Next.js**               | 16.0.0     | Full-stack framework           | App Router for native React Server Components, fast server-side reports, and edge-ready API routes.                       | Vite + Express (rejected due to complex deployment and lack of native server actions).        |
+| **TypeScript**            | 5.0.0+     | Static type safety             | Prevents type mismatch errors across invoices, quantities, and roles prior to runtime compilation.                        | Vanilla JavaScript (rejected due to vulnerability to bugs in financial calculations).         |
+| **Prisma**                | 7.8.0      | Object-Relational Mapper (ORM) | Multi-table database transactions (`$transaction`), auto-generated TypeScript schema types, and automatic seed hooks.     | Drizzle ORM (rejected due to raw SQL complexity for complex double-entry accounting).         |
+| **PostgreSQL**            | 16.0       | Primary relational database    | Solid relational integrity, support for concurrent transactions, and robust indexing.                                     | MySQL (rejected due to weaker transaction handling and strict constraint limits).             |
+| **NextAuth.js**           | 5.0.0-beta | Authentication engine          | Seamless Next.js middleware routing security, JWT token encryption, and native database session adapters.                 | Auth0 / Clerk (rejected due to external network dependency and pricing plans).                |
+| **TailwindCSS**           | 4.0.0+     | Styling framework              | Utility-first approach ensures highly responsive layouts and eliminates heavy stylesheets.                                | CSS Modules (rejected due to slower prototyping speed and lack of consistent design tokens).  |
+| **shadcn/ui**             | Latest     | UI Component library           | Accessible, fully styled raw components using Radix UI primitives.                                                        | Material UI / Ant Design (rejected due to heavy bundle size and difficult styling overrides). |
+| **Zod**                   | Latest     | Runtime schema validation      | Dual-purpose: provides client-side form validation feedback and acts as a strict guard at the entrance of Server Actions. | Yup (rejected due to poorer integration with TypeScript type inference).                      |
+| **React PDF**             | Latest     | PDF generation                 | Compiles React components directly into binary PDF blobs within Server Actions for reliable downloading.                  | html2pdf / Puppeteer (rejected due to heavy server resource usage and unstable CSS margins).  |
+| **xlsx (SheetJS)**        | Latest     | Excel exports                  | Direct generation of clean excel files of client ledgers and profit & loss sheets on the server.                          | CSV-only exports (rejected due to poor business owner experience).                            |
+| **Resend**                | Latest     | Transactional Email API        | Extremely high email delivery rates and simple API key integration for secure OTP delivery.                               | Custom SMTP server (rejected due to poor IP reputation and high spam delivery rate).          |
+| **Supabase**              | -          | Database Hosting & Storage     | High availability PostgreSQL instances, automated transaction backups, and visual explorer.                               | AWS RDS (rejected due to complex pricing and high management overhead).                       |
+| **nepali-date-converter** | Latest     | BS/AD Calendar conversions     | Converts Gregorian dates to Nepali Bikram Sambat (BS) calendar for local business reporting.                              | Custom date math (rejected due to high leap-year calculation error risks).                    |
 
 ---
 

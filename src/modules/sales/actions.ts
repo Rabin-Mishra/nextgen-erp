@@ -21,6 +21,7 @@ import {
   type RecordSalePaymentInput,
   type UpdateCustomerInput,
 } from "./types";
+import { getSystemSettings } from "@/lib/settings-store";
 import { getInvoiceById, getCustomerLedger, getSalesInvoices } from "./queries";
 
 function toDate(value: string | Date) {
@@ -85,7 +86,7 @@ function statusFromAmounts(total: Decimal, paid: Decimal, dueDate?: Date | null)
 async function latestCustomerBalance(tx: any, customerId: string) {
   const latest = await tx.ledgerEntry.findFirst({
     where: { partyType: "CUSTOMER", partyId: customerId },
-    orderBy: [{ entryDate: "desc" }, { createdAt: "desc" }],
+    orderBy: { createdAt: "desc" },
   });
   if (latest) return toDecimal(latest.runningBalance);
 
@@ -143,7 +144,10 @@ export async function createInvoice(data: CreateInvoiceInput, passedUserId?: str
   }
 
   const result = await db.$transaction(async (tx) => {
-    const invoiceNumber = await nextCode(tx, "salesInvoice", "invoiceNumber", "INV");
+    const settings = getSystemSettings();
+    const rawPrefix = settings?.invoiceSettings?.prefix || "INV";
+    const prefix = rawPrefix.endsWith("-") ? rawPrefix.slice(0, -1) : rawPrefix;
+    const invoiceNumber = await nextCode(tx, "salesInvoice", "invoiceNumber", prefix);
     const invoiceDate = toDate(parsed.invoiceDate);
     const dueDate = parsed.dueDate ? toDate(parsed.dueDate) : null;
     const vatPercent = parsed.vatPercent !== undefined ? toDecimal(parsed.vatPercent) : new Decimal(13);
@@ -543,21 +547,30 @@ export async function createSalesReturn(data: CreateReturnInput, userId?: string
       });
     }
 
-    // Update SalesReturn with actual total
+    // Calculate VAT if the original invoice had VAT applied
+    const originalVatPercent = toDecimal(invoice.vatPercent);
+    const hasVat = originalVatPercent.greaterThan(0);
+    const vatPercentVal = hasVat ? originalVatPercent : new Decimal(0);
+
+    const baseReturnAmount = returnValue;
+    const vatAmount = hasVat ? baseReturnAmount.times(vatPercentVal).div(100) : new Decimal(0);
+    const totalReturnAmount = baseReturnAmount.plus(vatAmount);
+
+    // Update SalesReturn with actual total (with VAT)
     await tx.salesReturn.update({
       where: { id: salesReturn.id },
-      data: { totalAmount: returnValue },
+      data: { totalAmount: totalReturnAmount },
     });
 
-    // Ledger Credit Bookkeeping (receivables decremented)
-    const runningBalance = (await latestCustomerBalance(tx, invoice.customerId)).minus(returnValue);
+    // Ledger Credit Bookkeeping (receivables decremented with VAT included)
+    const runningBalance = (await latestCustomerBalance(tx, invoice.customerId)).minus(totalReturnAmount);
     await tx.ledgerEntry.create({
       data: {
         entryDate: new Date(),
         partyType: "CUSTOMER",
         partyId: invoice.customerId,
         entryType: "CREDIT",
-        amount: returnValue,
+        amount: totalReturnAmount,
         referenceType: "SALES_RETURN",
         referenceId: salesReturn.id,
         description: `Return ${returnNumber} against invoice ${invoice.invoiceNumber}: ${parsed.reason}`,
@@ -572,7 +585,7 @@ export async function createSalesReturn(data: CreateReturnInput, userId?: string
       data: {
         entryDate: new Date(),
         type: "PAID",
-        amount: returnValue,
+        amount: totalReturnAmount,
         description: `Refund for Sales Return ${returnNumber} against INV ${invoice.invoiceNumber}`,
         partyType: "CUSTOMER",
         partyId: invoice.customerId,
@@ -584,7 +597,7 @@ export async function createSalesReturn(data: CreateReturnInput, userId?: string
     });
 
     // Update original Invoice totals
-    const adjustedTotal = toDecimal(invoice.totalAmount).minus(returnValue);
+    const adjustedTotal = toDecimal(invoice.totalAmount).minus(totalReturnAmount);
     const nextTotal = adjustedTotal.lessThan(0) ? new Decimal(0) : adjustedTotal;
     const nextBalance = nextTotal.minus(invoice.paidAmount);
     const updated = await tx.salesInvoice.update({
@@ -602,7 +615,7 @@ export async function createSalesReturn(data: CreateReturnInput, userId?: string
         action: "RETURN",
         module: "SALES",
         recordId: salesReturn.id,
-        newValues: { reason: parsed.reason, returnValue: returnValue.toString(), returnNumber },
+        newValues: { reason: parsed.reason, returnValue: totalReturnAmount.toString(), returnNumber },
       },
     });
 

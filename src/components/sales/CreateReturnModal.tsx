@@ -28,6 +28,19 @@ export function CreateReturnModal({ open, onOpenChange, invoice }: CreateReturnM
 
   if (!invoice) return null;
 
+  const invoiceVatPercent = invoice.vatPercent ? parseFloat(invoice.vatPercent) : 0;
+  const hasVat = invoiceVatPercent > 0;
+
+  let totalRefundSubtotal = 0;
+  invoice.items.forEach((item) => {
+    const currentQty = returnQtys[item.id] || 0;
+    const itemRefund = currentQty * parseFloat(item.unitPrice) * (1 - parseFloat(item.discountPercent) / 100);
+    totalRefundSubtotal += itemRefund;
+  });
+
+  const vatAmount = hasVat ? totalRefundSubtotal * (invoiceVatPercent / 100) : 0;
+  const totalCredit = totalRefundSubtotal + vatAmount;
+
   const handleQtyChange = (itemId: string, val: number) => {
     setReturnQtys((prev) => ({
       ...prev,
@@ -167,6 +180,26 @@ export function CreateReturnModal({ open, onOpenChange, invoice }: CreateReturnM
               );
             })}
           </div>
+
+          {/* Summary Panel */}
+          {totalRefundSubtotal > 0 && (
+            <div className="mt-4 p-4 rounded-xl border border-rose-100 bg-rose-50/10 space-y-2 max-w-md ml-auto">
+              <div className="flex justify-between text-sm text-zinc-650">
+                <span>Subtotal:</span>
+                <span className="font-semibold text-zinc-900">{formatNPR(totalRefundSubtotal)}</span>
+              </div>
+              {hasVat && (
+                <div className="flex justify-between text-sm text-zinc-650">
+                  <span>VAT ({invoiceVatPercent}%):</span>
+                  <span className="font-semibold text-zinc-900">{formatNPR(vatAmount)}</span>
+                </div>
+              )}
+              <div className="border-t border-rose-150 pt-2 flex justify-between text-base font-bold text-rose-700">
+                <span>Total Credit Note Value:</span>
+                <span>{formatNPR(totalCredit)}</span>
+              </div>
+            </div>
+          )}
 
           {error && <p className="text-sm font-semibold text-rose-650 mt-2">{error}</p>}
         </div>

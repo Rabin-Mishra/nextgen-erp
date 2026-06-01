@@ -66,3 +66,4 @@ DATA_ENTRY_GUIDE.md
 *WALKTHROUGH.md
 .env
 .env.local
+debug.log

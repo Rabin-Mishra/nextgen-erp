@@ -183,13 +183,31 @@ export default async function SalesPage({ searchParams }: SalesPageProps) {
                   </table>
                 </div>
 
-                <div className="mt-3 pt-3 border-t border-red-100/40 dark:border-red-950/20 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 text-xs">
-                  <div className="text-zinc-500">
+                <div className="mt-3 pt-3 border-t border-red-100/40 dark:border-red-950/20 flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4 text-xs">
+                  <div className="text-zinc-500 max-w-md">
                     <span className="font-semibold text-zinc-700 dark:text-zinc-300">Reason:</span> {r.notes || "No reason specified."}
                   </div>
-                  <div className="text-right font-bold text-red-700 dark:text-red-300 text-sm">
-                    Total Refund: {formatNPR(Number(r.totalAmount))}
-                  </div>
+                  {(() => {
+                    const originalVatPercent = r.invoice?.vatPercent ? Number(r.invoice.vatPercent) : 0;
+                    const hasVat = originalVatPercent > 0;
+                    const totalAmount = Number(r.totalAmount);
+                    const subtotal = hasVat ? totalAmount / (1 + originalVatPercent / 100) : totalAmount;
+                    const vatAmount = totalAmount - subtotal;
+                    
+                    return (
+                      <div className="text-right space-y-1 ml-auto font-medium text-zinc-600 dark:text-zinc-400">
+                        {hasVat && (
+                          <>
+                            <div>Subtotal: <span className="text-zinc-900 dark:text-zinc-100">{formatNPR(subtotal)}</span></div>
+                            <div>VAT ({originalVatPercent}%): <span className="text-zinc-900 dark:text-zinc-100">{formatNPR(vatAmount)}</span></div>
+                          </>
+                        )}
+                        <div className="font-bold text-red-700 dark:text-red-300 text-sm pt-1">
+                          Total Credit: {formatNPR(totalAmount)}
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
             )) : (

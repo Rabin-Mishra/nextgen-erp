@@ -26,6 +26,7 @@ interface SupplierData {
   notes: string | null;
   balance?: string;
   isActive: boolean;
+  purchaseOrdersCount?: number;
 }
 
 interface SupplierListTableProps {
@@ -46,6 +47,8 @@ export function SupplierListTable({ suppliers: initialSuppliers, userId }: Suppl
   // Ledger Modal State
   const [selectedSupplierId, setSelectedSupplierId] = useState<string | null>(null);
   const [selectedSupplierName, setSelectedSupplierName] = useState<string>("");
+  const [selectedSupplierPan, setSelectedSupplierPan] = useState<string>("");
+  const [selectedSupplierPhone, setSelectedSupplierPhone] = useState<string>("");
   const [showLedgerModal, setShowLedgerModal] = useState(false);
 
   // Edit Modal State
@@ -76,9 +79,11 @@ export function SupplierListTable({ suppliers: initialSuppliers, userId }: Suppl
     );
   }, [suppliers, searchQuery]);
 
-  const handleOpenLedger = (id: string, name: string) => {
+  const handleOpenLedger = (id: string, name: string, pan?: string | null, phone?: string | null) => {
     setSelectedSupplierId(id);
     setSelectedSupplierName(name);
+    setSelectedSupplierPan(pan || "");
+    setSelectedSupplierPhone(phone || "");
     setShowLedgerModal(true);
   };
 
@@ -157,7 +162,7 @@ export function SupplierListTable({ suppliers: initialSuppliers, userId }: Suppl
               <th className="px-4 py-3">Supplier Name</th>
               <th className="px-4 py-3 font-mono text-xs">PAN</th>
               <th className="px-4 py-3">Phone</th>
-              <th className="px-4 py-3 text-right">Balance Owed (AP)</th>
+              <th className="px-4 py-3 text-right">Balance Owed (AP) (NPR)</th>
               <th className="px-4 py-3 text-center">Status</th>
               <th className="px-4 py-3 text-right">Actions</th>
             </tr>
@@ -183,9 +188,13 @@ export function SupplierListTable({ suppliers: initialSuppliers, userId }: Suppl
                     </td>
                     <td className="px-4 py-3 font-mono text-xs">{supplier.panNumber ?? "-"}</td>
                     <td className="px-4 py-3 font-mono text-xs">{supplier.phone ?? "-"}</td>
-                    <td className="px-4 py-3 text-right font-bold">
-                      <span className={bal > 0 ? "text-red-600 dark:text-red-400" : "text-zinc-600"}>
-                        {formatNPR(bal)}
+                    <td className="px-4 py-3 text-right">
+                      <span
+                        className={`font-bold font-mono ${
+                          bal > 0 ? "text-amber-600 dark:text-amber-500" : "text-zinc-400 dark:text-zinc-500 font-medium"
+                        }`}
+                      >
+                        {bal.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-center">
@@ -198,7 +207,7 @@ export function SupplierListTable({ suppliers: initialSuppliers, userId }: Suppl
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => handleOpenLedger(supplier.id, supplier.name)}
+                          onClick={() => handleOpenLedger(supplier.id, supplier.name, supplier.panNumber, supplier.phone)}
                           className="text-xs h-8 gap-1 border-primary/20 text-primary hover:bg-primary/5 rounded-lg font-bold"
                         >
                           <BookOpen className="h-3.5 w-3.5" />
@@ -237,6 +246,8 @@ export function SupplierListTable({ suppliers: initialSuppliers, userId }: Suppl
           onOpenChange={setShowLedgerModal}
           supplierId={selectedSupplierId}
           supplierName={selectedSupplierName}
+          supplierPan={selectedSupplierPan}
+          supplierPhone={selectedSupplierPhone}
         />
       )}
 

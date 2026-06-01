@@ -325,6 +325,8 @@ export async function getProjectProfitability(projectId?: string) {
         totalCost: totalCost.toString(),
         grossProfit: grossProfit.toString(),
         marginPercent: marginPercent.toFixed(1),
+        startDate: p.startDate?.toISOString() ?? null,
+        endDate: p.endDate?.toISOString() ?? null,
       };
     })
   );

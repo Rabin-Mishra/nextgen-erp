@@ -197,6 +197,11 @@ export async function getSuppliers(search?: string, page = 1, pageSize = 25) {
   const [suppliers, total] = await Promise.all([
     db.supplier.findMany({
       where,
+      include: {
+        _count: {
+          select: { purchaseOrders: true }
+        }
+      },
       skip: (page - 1) * pageSize,
       take: pageSize,
       orderBy: { name: "asc" },
@@ -208,11 +213,12 @@ export async function getSuppliers(search?: string, page = 1, pageSize = 25) {
     suppliers.map(async (supplier) => {
       const latest = await db.ledgerEntry.findFirst({
         where: { partyType: "SUPPLIER", partyId: supplier.id },
-        orderBy: [{ entryDate: "desc" }, { createdAt: "desc" }],
+        orderBy: { createdAt: "desc" },
       });
       return {
         ...mapSupplier(supplier),
         balance: latest?.runningBalance?.toString() ?? supplier.openingBalance.toString(),
+        purchaseOrdersCount: (supplier as any)._count?.purchaseOrders ?? 0,
       };
     })
   );
@@ -282,7 +288,7 @@ export async function getVendorLedger(supplierId: string, dateFrom?: Date, dateT
 
   const entries = await db.ledgerEntry.findMany({
     where,
-    orderBy: [{ entryDate: "asc" }, { createdAt: "asc" }],
+    orderBy: { createdAt: "asc" },
   });
 
   const mapped = entries.map((entry) => {
@@ -300,7 +306,20 @@ export async function getVendorLedger(supplierId: string, dateFrom?: Date, dateT
     });
   });
 
-  return serializeForClient(mapped);
+  const sorted = mapped.sort((a, b) => {
+    const dA = new Date(a.entryDate);
+    const dB = new Date(b.entryDate);
+    const timeA = new Date(dA.getFullYear(), dA.getMonth(), dA.getDate()).getTime();
+    const timeB = new Date(dB.getFullYear(), dB.getMonth(), dB.getDate()).getTime();
+    if (timeA !== timeB) {
+      return timeA - timeB;
+    }
+    const indexA = entries.findIndex((e) => e.id === a.id);
+    const indexB = entries.findIndex((e) => e.id === b.id);
+    return indexA - indexB;
+  });
+
+  return serializeForClient(sorted);
 }
 
 export async function getActiveProducts() {

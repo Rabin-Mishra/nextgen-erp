@@ -112,6 +112,8 @@ export const projectProfitabilitySchema = z.object({
   totalCost: z.string(),
   grossProfit: z.string(),
   marginPercent: z.string(),
+  startDate: z.string().nullable().optional(),
+  endDate: z.string().nullable().optional(),
 });
 
 export type ProjectProfitabilitySchema = z.infer<typeof projectProfitabilitySchema>;

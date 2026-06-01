@@ -11,6 +11,7 @@ import { receiveGoodsSchema } from "@/modules/purchase/types";
 import { receiveGoods } from "@/modules/purchase/actions";
 import { toast } from "sonner";
 import { Package } from "lucide-react";
+import { formatNPR } from "@/lib/utils";
 
 interface ReceiveGoodsModalProps {
   open?: boolean;
@@ -37,6 +38,7 @@ export function ReceiveGoodsModal({
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
   const [warehouses, setWarehouses] = useState<any[]>([]);
+  const [applyVat, setApplyVat] = useState(false);
 
   const open = openProp !== undefined ? openProp : internalOpen;
   const setOpen = (v: boolean) => {
@@ -76,6 +78,7 @@ export function ReceiveGoodsModal({
       });
       setPrices(defaultPrices);
       setReceiving(defaultReceiving);
+      setApplyVat(false);
     }
   }, [open, poItems]);
 
@@ -86,6 +89,13 @@ export function ReceiveGoodsModal({
   const handlePrice = (itemId: string, price: number) => {
     setPrices((prev) => ({ ...prev, [itemId]: price }));
   };
+
+  const subtotal = Object.entries(receiving).reduce((sum, [itemId, qty]) => {
+    const price = prices[itemId] ?? 0;
+    return sum + (qty * price);
+  }, 0);
+  const vatAmount = applyVat ? subtotal * 0.13 : 0;
+  const totalPayable = subtotal + vatAmount;
 
   const handleSubmit = async () => {
     if (!warehouseId) {
@@ -126,6 +136,7 @@ export function ReceiveGoodsModal({
       items: itemsToReceive,
       warehouseId,
       notes: notes || undefined,
+      applyVat,
     };
 
     // Client-side Zod validation
@@ -251,6 +262,44 @@ export function ReceiveGoodsModal({
                   </div>
                 );
               })}
+            </div>
+          )}
+
+          {poItems.length > 0 && (
+            <div className="space-y-4 mt-6">
+              <label className="flex items-center gap-2 text-sm font-semibold text-zinc-700 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={applyVat}
+                  onChange={(e) => setApplyVat(e.target.checked)}
+                  className="h-4 w-4 rounded border-zinc-300 text-amber-500 focus:ring-amber-500"
+                />
+                Apply Nepal VAT 13% on this receipt
+              </label>
+
+              <div className="p-4 rounded-xl border border-zinc-200 bg-zinc-50/50 space-y-2 max-w-md ml-auto text-right">
+                {applyVat ? (
+                  <>
+                    <div className="flex justify-between text-xs text-zinc-500">
+                      <span>Subtotal:</span>
+                      <span className="font-semibold text-zinc-800">{formatNPR(subtotal)}</span>
+                    </div>
+                    <div className="flex justify-between text-xs text-zinc-500">
+                      <span>VAT (13%):</span>
+                      <span className="font-semibold text-zinc-800">{formatNPR(vatAmount)}</span>
+                    </div>
+                    <div className="border-t border-zinc-200 pt-2 flex justify-between text-sm font-bold text-zinc-950">
+                      <span>Total Payable:</span>
+                      <span>{formatNPR(totalPayable)}</span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex justify-between text-sm font-bold text-zinc-950">
+                    <span>Total Payable:</span>
+                    <span>{formatNPR(totalPayable)} (no VAT)</span>
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>

@@ -52,20 +52,33 @@ async function resetDatabase() {
 
   console.log("✅ Database cleared.");
 
-  // 1. Create Superadmin User
-  console.log("👥 Creating production Superadmin...");
-  const adminHash = await bcrypt.hash("Admin@2026", 12);
+  // 1. Create Default Users
+  console.log("👥 Creating production Superadmin and Owner...");
+  const gauravHash = await bcrypt.hash("Gaurav@123", 12);
   const superAdmin = await prisma.user.create({
     data: {
-      name: "Nischal Timsina",
-      email: "admin@nextgen.com",
-      phone: "9843146474",
-      passwordHash: adminHash,
+      name: "Gaurav Chaulagain",
+      email: "gauravchaulagain99@gmail.com",
+      phone: "",
+      passwordHash: gauravHash,
       role: Role.SUPERADMIN,
       isActive: true,
     },
   });
   console.log(`✅ Superadmin created: ${superAdmin.email}`);
+
+  const nischalHash = await bcrypt.hash("Nischal@123", 12);
+  const owner = await prisma.user.create({
+    data: {
+      name: "Nischal Timsina",
+      email: "nischaltimsina20@gmail.com",
+      phone: "9843146474",
+      passwordHash: nischalHash,
+      role: Role.OWNER,
+      isActive: true,
+    },
+  });
+  console.log(`✅ Business Owner created: ${owner.email}`);
 
   // 2. Create production Fiscal Year
   console.log("📅 Creating production Fiscal Year...");
