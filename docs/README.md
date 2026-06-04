@@ -51,13 +51,17 @@ Welcome to the professional documentation suite for the **NextGen ERP platform**
 
 | Operational Item | Specification Detail |
 |------------------|----------------------|
-| **Core Framework** | Next.js 16.0.0 (App Router Tiers) |
+| **Core Framework** | Next.js 16.2.6 (App Router Tiers) |
 | **Static Language** | TypeScript 5.x (Strict compilation mode) |
-| **Primary Database** | PostgreSQL 16 (Hosted on Supabase) |
+| **Primary Database** | PostgreSQL (Hosted on Supabase) |
 | **Schema ORM** | Prisma ORM 7.8.0 |
-| **Session Manager** | NextAuth.js v5 (JWT Token Signatures) |
+| **Session Manager** | NextAuth.js v5 (Auth.js v5 Beta) |
 | **Live Server Hosting** | Vercel Serverless Tiers |
 | **Transactional Email** | Resend API Gateway |
+| **CSS Framework** | Tailwind CSS v4.0 |
+| **Component Library** | Radix UI Primitives + Shadcn UI |
+| **Validation Engine** | Zod (Dynamic Schema Validation) |
+| **Test Runner** | Vitest (Vite-native unit testing) |
 | **Accounting Standard** | Localized Zero-Sum Double-Entry Ledger Bookkeeping |
 | **Business Currency** | Nepalese Rupee (NPR - Lakhs `XX,XX,XXX` notation) |
 | **Date Framework** | Gregorian (AD) internally, Bikram Sambat (BS) client-side |

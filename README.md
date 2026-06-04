@@ -2,13 +2,48 @@
 
 A production-grade ERP for construction materials distributors built with Next.js 16, TypeScript, Prisma ORM, and PostgreSQL.
 
-## Tech Stack
-- **Frontend**: Next.js 16 (App Router) + TypeScript
-- **Styling**: Tailwind CSS + shadcn/ui
-- **Database**: PostgreSQL via Prisma ORM
-- **Auth**: NextAuth.js v5 (JWT + RBAC)
-- **Email**: Resend API
-- **Deployment**: Vercel + Supabase (or Docker + VPS)
+## Tech Stack & Technologies
+
+### 1. Languages
+- **TypeScript & JavaScript**: Used for frontend component logic, backend API routes, type-safety, and database seeding/reset scripts.
+- **SQL (via Prisma Schema)**: Declarative schema modeling for the PostgreSQL database.
+- **HTML & CSS**: Structuring templates and styling components.
+
+### 2. Core Framework (Frontend & Backend)
+- **Next.js 16 (App Router)**: A full-stack React framework. 
+  - **Frontend**: Next.js React Server Components (RSC) and Client Components with React 19.
+  - **Backend**: Next.js Route Handlers (API endpoints) and Server Actions serving as the backend layer.
+  - **Build engine**: Next.js Turbopack is configured for extremely fast development and build compilations.
+
+### 3. Database & ORM
+- **Prisma ORM (v7.8)**: Database abstraction layer (ORM) to read/write data with full TypeScript safety.
+- **PostgreSQL (Supabase)**: Relational database.
+- **PgBouncer (Supabase Pooler)**: Used for database connection pooling to handle high-frequency serverless connection request environments.
+
+### 4. Authentication & Security
+- **Auth.js / NextAuth.js (v5 Beta)**: Standard authentication library managing user sessions, JWT tokens, cookies, and role-based access control (RBAC).
+- **bcryptjs**: Securely hashes and salts user passwords before storing them in the database.
+
+### 5. Styling & UI Components
+- **Tailwind CSS (v4)**: Modern utility-first CSS framework for layout, colors, grids, responsive design, and transitions.
+- **Radix UI**: Accessible, headless primitive components (modals, drop-downs, dialogs) that serve as the foundation of the UI.
+- **Shadcn UI**: Design system components built on top of Radix UI and Tailwind CSS.
+- **Lucide React**: Vector icons used across the entire application interface.
+- **Recharts**: Data visualization library used for charts and business performance dashboards.
+- **Sonner**: Toast library for modern, interactive user notifications (success, error, warning popups).
+
+### 6. Key Libraries & Utilities
+- **Zod**: Declarative schema validation library used for verifying API inputs, forms, and environment variables.
+- **@react-pdf/renderer**: Used for generating, previewing, and downloading PDF documents on the client-side (such as invoices and credit notes).
+- **xlsx**: Library to parse and generate Excel spreadsheets (used to export inventory and report datasets).
+- **nepali-date-converter**: Converts standard Gregorian calendar dates (AD) to Nepalese Bikram Sambat (BS) calendar dates for local invoicing and reporting.
+- **decimal.js**: High-precision arithmetic library for currency, tax, and inventory calculations (preventing standard floating-point binary issues in JavaScript).
+
+### 7. Tooling & Testing
+- **Vitest**: Vite-native unit testing framework for running unit tests.
+- **ESLint**: Linter to enforce clean coding guidelines.
+- **Docker**: Configured using local scripts (`docker-start.sh`) for containerizing the Postgres database during local development.
+
 
 ## Modules
 - Dashboard — Real-time KPIs and business overview
