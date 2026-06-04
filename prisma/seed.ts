@@ -6,7 +6,7 @@ import { Role, Unit, CustomerType, StockTransactionType, PurchaseOrderStatus, In
 import bcrypt from "bcryptjs";
 import { Decimal } from "decimal.js";
 
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+const pool = new Pool({ connectionString: process.env.POSTGRES_URL_NON_POOLING || process.env.DATABASE_URL });
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 

@@ -6,7 +6,7 @@ import { Role } from "../src/generated/prisma/enums";
 import bcrypt from "bcryptjs";
 import readline from "readline";
 
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+const pool = new Pool({ connectionString: process.env.POSTGRES_URL_NON_POOLING || process.env.DATABASE_URL });
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
