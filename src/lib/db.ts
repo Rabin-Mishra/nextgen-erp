@@ -58,11 +58,7 @@ async function createPrismaClient(): Promise<PrismaClient> {
 
   const client = new PrismaClient({ 
     adapter,
-    datasources: {
-      db: {
-        url: prismaConnectionString,
-      },
-    },
+    datasourceUrl: prismaConnectionString,
   } as any);
   
   if (process.env.NODE_ENV !== "production") {
