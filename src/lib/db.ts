@@ -2,14 +2,21 @@ import { Pool } from "pg";
 import { PrismaPg } from "@prisma/adapter-pg";
 import type { PrismaClient } from "../generated/prisma/client";
 
-// Helper to dynamically append sslmode=no-verify to connection strings in production
+// Helper to dynamically append sslmode=no-verify and sslaccept=accept_invalid_certs to connection strings in production
 function appendSslMode(url: string | undefined): string | undefined {
   if (!url) return url;
   if (url.includes("localhost") || url.includes("127.0.0.1")) return url;
-  if (url.includes("sslmode=")) return url;
   
-  const separator = url.includes("?") ? "&" : "?";
-  return `${url}${separator}sslmode=no-verify`;
+  let updatedUrl = url;
+  if (!updatedUrl.includes("sslmode=")) {
+    const separator = updatedUrl.includes("?") ? "&" : "?";
+    updatedUrl = `${updatedUrl}${separator}sslmode=no-verify`;
+  }
+  if (!updatedUrl.includes("sslaccept=")) {
+    const separator = updatedUrl.includes("?") ? "&" : "?";
+    updatedUrl = `${updatedUrl}${separator}sslaccept=accept_invalid_certs`;
+  }
+  return updatedUrl;
 }
 
 // Intercept and mutate environment variables in memory before Prisma loads them
@@ -18,6 +25,9 @@ if (process.env.POSTGRES_PRISMA_URL) {
 }
 if (process.env.POSTGRES_URL_NON_POOLING) {
   process.env.POSTGRES_URL_NON_POOLING = appendSslMode(process.env.POSTGRES_URL_NON_POOLING);
+}
+if (process.env.POSTGRES_URL) {
+  process.env.POSTGRES_URL = appendSslMode(process.env.POSTGRES_URL);
 }
 if (process.env.DATABASE_URL) {
   process.env.DATABASE_URL = appendSslMode(process.env.DATABASE_URL);
