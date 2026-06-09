@@ -49,8 +49,8 @@ export function ProjectDetailClient({ data }: ProjectDetailClientProps) {
   const billed = parseFloat(project.totalBilled);
   const profit = billed - cost;
   const margin = billed > 0 ? (profit / billed) * 100 : 0;
-  const projectedProfit = contract - budget;
-  const projectedMargin = contract > 0 ? (projectedProfit / contract) * 100 : 0;
+  const netProfit = contract - billed;
+  const netMargin = contract > 0 ? (netProfit / contract) * 100 : 0;
   
   const billedPercent = contract > 0 ? Math.min(100, Math.round((billed / contract) * 100)) : 0;
   const costPercent = budget > 0 ? Math.min(100, Math.round((cost / budget) * 100)) : 0;
@@ -227,12 +227,12 @@ export function ProjectDetailClient({ data }: ProjectDetailClientProps) {
               </p>
             </div>
             <div className="border-t pt-2 flex flex-col">
-              <span className="text-[9px] text-zinc-450 font-bold uppercase tracking-wide">Projected Net Profit (At Completion)</span>
+              <span className="text-[9px] text-zinc-450 font-bold uppercase tracking-wide">Net Profit</span>
               <div className="text-sm font-extrabold text-zinc-800 dark:text-zinc-200">
-                {formatAmountOnly(projectedProfit)}
+                {formatAmountOnly(netProfit)}
               </div>
               <p className="text-[10px] text-zinc-400 font-semibold mt-0.5">
-                Projected Margin: <span className={`font-bold ${projectedProfit >= 0 ? "text-green-600 dark:text-green-400" : "text-rose-500"}`}>{projectedMargin.toFixed(1)}%</span>
+                Net Margin: <span className={`font-bold ${netProfit >= 0 ? "text-green-600 dark:text-green-400" : "text-rose-500"}`}>{netMargin.toFixed(1)}%</span>
               </p>
             </div>
           </CardContent>
