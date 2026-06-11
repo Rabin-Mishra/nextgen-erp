@@ -111,10 +111,13 @@ export async function createPurchaseOrder(data: CreatePurchaseOrderInput, userId
       },
     });
 
-    await tx.purchaseOrderItem.createMany({
-      data: parsed.items.map((item) => {
-        const unitPrice = toDecimal(item.unitPrice);
-        return {
+    for (const item of parsed.items) {
+      const unitPrice = toDecimal(item.unitPrice);
+      const factor = toDecimal(item.conversionFactor ?? 1);
+      const baseQtyEquivalent = toDecimal(item.orderedQty).times(factor);
+
+      await tx.purchaseOrderItem.create({
+        data: {
           purchaseOrderId: po.id,
           productId: item.productId,
           orderedQty: item.orderedQty,
@@ -122,9 +125,12 @@ export async function createPurchaseOrder(data: CreatePurchaseOrderInput, userId
           unitPrice,
           totalPrice: unitPrice.times(item.orderedQty),
           notes: item.notes,
-        };
-      }),
-    });
+          orderedUnit: item.orderedUnit || null,
+          conversionFactor: factor,
+          baseQtyEquivalent: baseQtyEquivalent,
+        },
+      });
+    }
 
     await tx.auditLog.create({
       data: {
@@ -173,6 +179,7 @@ export async function updatePurchaseOrder(id: string, data: UpdatePurchaseOrderI
               orderedQty: item.orderedQty,
               unitPrice: activePrice,
               totalPrice,
+              baseQtyEquivalent: new Decimal(item.orderedQty).times(currentItem.conversionFactor ?? 1),
             }
           });
         }
@@ -300,17 +307,19 @@ export async function receiveGoods(data: ReceiveGoodsInput, userId: string) {
       const poItem = currentItems.find((item: any) => item.id === receiveItem.poItemId);
       if (!poItem) throw new Error(`PO item ${receiveItem.poItemId} not found`);
 
-      const remainingQty = poItem.orderedQty - poItem.receivedQty;
-      if (receiveItem.receivedQty > remainingQty) {
-        throw new Error(`Cannot receive more than ${remainingQty} units for item ${poItem.id}`);
+      const remainingQty = toDecimal(poItem.orderedQty).minus(poItem.receivedQty);
+      if (toDecimal(receiveItem.receivedQty).greaterThan(remainingQty)) {
+        throw new Error(`Cannot receive more than ${remainingQty.toNumber()} units for item ${poItem.id}`);
       }
 
       const activePrice = toDecimal(receiveItem.receivedPrice);
+      const factor = toDecimal(poItem.conversionFactor ?? 1);
+      const baseReceivedQty = toDecimal(receiveItem.receivedQty).times(factor);
 
       await tx.purchaseOrderItem.update({
         where: { id: receiveItem.poItemId },
         data: {
-          receivedQty: poItem.receivedQty + receiveItem.receivedQty,
+          receivedQty: toDecimal(poItem.receivedQty).plus(receiveItem.receivedQty),
           unitPrice: activePrice,
           totalPrice: activePrice.times(poItem.orderedQty),
         },
@@ -321,22 +330,25 @@ export async function receiveGoods(data: ReceiveGoodsInput, userId: string) {
           type: "PURCHASE_IN",
           productId: poItem.productId,
           warehouseId: parsed.warehouseId,
-          quantity: receiveItem.receivedQty,
-          unitCost: activePrice,
+          quantity: baseReceivedQty,
+          unitCost: activePrice.div(factor),
           referenceType: "PURCHASE_ORDER",
           referenceId: po.id,
           notes: parsed.notes ?? `Received from PO ${po.poNumber}`,
           userId: activeUserId,
+          transactionUnit: poItem.orderedUnit,
+          conversionFactor: factor,
+          originalQty: receiveItem.receivedQty,
         },
       });
 
       await tx.inventoryStock.upsert({
         where: { productId_warehouseId: { productId: poItem.productId, warehouseId: parsed.warehouseId } },
-        update: { quantity: { increment: receiveItem.receivedQty } },
+        update: { quantity: { increment: baseReceivedQty } },
         create: {
           productId: poItem.productId,
           warehouseId: parsed.warehouseId,
-          quantity: receiveItem.receivedQty,
+          quantity: baseReceivedQty,
           reservedQty: 0,
         },
       });
@@ -786,7 +798,7 @@ export async function getProductStockLevels(productIds: string[]) {
   });
   const stockMap: Record<string, number> = {};
   for (const s of stocks) {
-    stockMap[s.productId] = s.quantity;
+    stockMap[s.productId] = Number(s.quantity.toString());
   }
   return stockMap;
 }

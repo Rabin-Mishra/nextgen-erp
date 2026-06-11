@@ -293,9 +293,12 @@ export async function issueSupplyToProject(data: IssueSupplyInput, userId?: stri
       });
       if (!stock) throw new Error(`No stock record found for selected product and warehouse`);
 
-      const availableQty = stock.quantity - stock.reservedQty;
-      if (availableQty < item.qty) {
-        throw new Error(`${stock.product.name} has only ${availableQty} ${stock.product.unit} available in ${stock.warehouse.name}`);
+      const factor = toDecimal(item.conversionFactor ?? 1);
+      const baseQtyEquivalent = toDecimal(item.qty).times(factor);
+
+      const availableQty = stock.quantity.minus(stock.reservedQty);
+      if (availableQty.lessThan(baseQtyEquivalent)) {
+        throw new Error(`${stock.product.name} has only ${availableQty.toString()} ${stock.product.unit} available in ${stock.warehouse.name}`);
       }
 
       // Resolve cost price (if Custom unit price override is not provided, fetch the active product variant projectPrice)
@@ -306,11 +309,19 @@ export async function issueSupplyToProject(data: IssueSupplyInput, userId?: stri
           orderBy: { effectiveDate: "desc" },
         });
         if (!variant) throw new Error(`No active project variant price found for ${stock.product.name}`);
-        unitPrice = toDecimal(variant.projectPrice);
+        unitPrice = toDecimal(variant.projectPrice).times(factor);
       }
 
       const totalPrice = unitPrice.times(item.qty);
       subtotal = subtotal.plus(totalPrice);
+
+      // Query active variant purchase price (cost price)
+      const variant = await tx.productVariant.findFirst({
+        where: { productId: item.productId, isActive: true },
+        orderBy: { effectiveDate: "desc" },
+        select: { purchasePrice: true }
+      });
+      const purchasePrice = variant ? toDecimal(variant.purchasePrice) : new Decimal(0);
 
       preparedItems.push({
         productId: item.productId,
@@ -319,6 +330,10 @@ export async function issueSupplyToProject(data: IssueSupplyInput, userId?: stri
         totalPrice,
         notes: item.notes,
         stock,
+        purchasePrice,
+        salesUnit: item.salesUnit || stock.product.unit,
+        factor,
+        baseQtyEquivalent,
       });
     }
 
@@ -381,13 +396,16 @@ export async function issueSupplyToProject(data: IssueSupplyInput, userId?: stri
           discountPercent: new Decimal(0),
           totalPrice: item.totalPrice,
           notes: item.notes,
+          salesUnit: item.salesUnit,
+          conversionFactor: item.factor,
+          baseQtyEquivalent: item.baseQtyEquivalent,
         },
       });
 
       // Deduct inventory stock
       await tx.inventoryStock.update({
         where: { productId_warehouseId: { productId: item.productId, warehouseId: parsed.warehouseId } },
-        data: { quantity: { decrement: item.qty } },
+        data: { quantity: { decrement: item.baseQtyEquivalent } },
       });
 
       // Log StockTransaction type PROJECT_ISSUE
@@ -396,12 +414,15 @@ export async function issueSupplyToProject(data: IssueSupplyInput, userId?: stri
           type: "PROJECT_ISSUE",
           productId: item.productId,
           warehouseId: parsed.warehouseId,
-          quantity: -item.qty,
-          unitCost: item.unitPrice,
+          quantity: item.baseQtyEquivalent.negated(),
+          unitCost: item.purchasePrice, // Cost price (per base unit)
           referenceType: "SALES_INVOICE",
           referenceId: invoice.id,
           notes: item.notes || `Issued to contract site ${project.projectCode}`,
           userId: createdBy,
+          transactionUnit: item.salesUnit,
+          conversionFactor: item.factor,
+          originalQty: item.qty,
         },
       });
     }

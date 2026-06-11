@@ -1,5 +1,5 @@
 import * as XLSX from "xlsx";
-import { PartyType } from "@/generated/prisma/client";
+import { PartyType } from "@/generated/prisma/enums";
 import { fetchPartyLedgerAction } from "@/modules/accounting/actions";
 import Decimal from "decimal.js";
 

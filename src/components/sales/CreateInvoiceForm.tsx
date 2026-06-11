@@ -22,6 +22,8 @@ type LineItem = {
   qty: number;
   unitPrice: number;
   discountPercent: number;
+  salesUnit?: string;
+  conversionFactor?: number;
 };
 
 interface CreateInvoiceFormProps {
@@ -89,6 +91,8 @@ export function CreateInvoiceForm({ customers, products, projects, warehouses }:
         qty: 1,
         unitPrice: priceForType(product, invoiceType),
         discountPercent: 0,
+        salesUnit: product?.unit ?? "PCS",
+        conversionFactor: 1,
       },
     ]);
   };
@@ -102,8 +106,35 @@ export function CreateInvoiceForm({ customers, products, projects, warehouses }:
           const product = products.find((candidate) => candidate.id === patch.productId);
           next.unitPrice = priceForType(product, invoiceType);
           next.warehouseId = product?.stockByWarehouse[0]?.warehouseId ?? next.warehouseId;
+          next.salesUnit = product?.unit ?? "PCS";
+          next.conversionFactor = 1;
         }
         return next;
+      })
+    );
+  };
+
+  const handleUnitChange = (id: string, newUnit: string) => {
+    setItems((current) =>
+      current.map((item) => {
+        if (item.id !== id) return item;
+        const product = products.find((p) => p.id === item.productId);
+        if (!product) return { ...item, salesUnit: newUnit };
+
+        let factor = 1;
+        if (newUnit === product.altSalesUnit) {
+          factor = Number(product.altSalesConversionFactor) || 1;
+        }
+
+        const basePrice = priceForType(product, invoiceType);
+        const unitPrice = basePrice * factor;
+
+        return {
+          ...item,
+          salesUnit: newUnit,
+          conversionFactor: factor,
+          unitPrice,
+        };
       })
     );
   };
@@ -135,6 +166,8 @@ export function CreateInvoiceForm({ customers, products, projects, warehouses }:
         qty: Number(item.qty),
         unitPrice: Number(item.unitPrice),
         discountPercent: Number(item.discountPercent),
+        salesUnit: item.salesUnit || undefined,
+        conversionFactor: item.conversionFactor ? Number(item.conversionFactor) : undefined,
       })),
     };
 
@@ -150,8 +183,11 @@ export function CreateInvoiceForm({ customers, products, projects, warehouses }:
       return;
     }
 
-    // 3. Dynamic stock check
-    const invalidStock = items.find((item) => item.qty > availableQty(item));
+    // 3. Dynamic stock check (converted to base quantity equivalents)
+    const invalidStock = items.find((item) => {
+      const baseQtyEquivalent = item.qty * (item.conversionFactor || 1);
+      return baseQtyEquivalent > availableQty(item);
+    });
     if (invalidStock) {
       const prodName = products.find((p) => p.id === invalidStock.productId)?.name || "Item";
       setError(`Stock bounds exceeded for ${prodName}.`);
@@ -290,8 +326,12 @@ export function CreateInvoiceForm({ customers, products, projects, warehouses }:
                       {items.map((item) => {
                         const product = products.find((candidate) => candidate.id === item.productId);
                         const stockQty = availableQty(item);
+                        const baseUnit = product?.unit ?? "PCS";
+                        const showAltUnit = product?.altSalesUnit && product.altSalesUnit !== baseUnit;
+                        const basePrice = priceForType(product, invoiceType);
+
                         return (
-                          <div key={item.id} className="grid gap-3 rounded-lg border p-3 lg:grid-cols-[1.5fr_1fr_80px_110px_90px_100px_auto] lg:items-end">
+                          <div key={item.id} className="grid gap-3 rounded-lg border p-3 lg:grid-cols-[1.5fr_1fr_80px_90px_90px_110px_90px_100px_auto] lg:items-end">
                             <div>
                               <label className="text-xs font-medium text-zinc-500">Product</label>
                               <select value={item.productId} onChange={(event) => updateLine(item.id, { productId: event.target.value })} className="h-9 w-full rounded-lg border bg-background px-3 text-sm">
@@ -311,19 +351,52 @@ export function CreateInvoiceForm({ customers, products, projects, warehouses }:
                             <div>
                               <label className="text-xs font-medium text-zinc-500">Qty</label>
                               <Input type="number" min={1} value={item.qty} onChange={(event) => updateLine(item.id, { qty: Number(event.target.value) })} />
-                              <p className={item.qty > stockQty ? "mt-1 text-xs text-red-600" : "mt-1 text-xs text-zinc-500"}>{stockQty} available</p>
+                              <div className="mt-1 space-y-1">
+                                <p className={item.qty * (item.conversionFactor || 1) > stockQty ? "text-[10px] text-red-650 font-mono font-medium" : "text-[10px] text-zinc-500 font-mono"}>
+                                  {stockQty} {baseUnit} av.
+                                </p>
+                                {item.conversionFactor && item.conversionFactor > 1 && (
+                                  <div className="inline-flex items-center rounded-md bg-amber-50 dark:bg-amber-950/30 px-1.5 py-0.5 text-[9px] font-bold text-amber-800 dark:text-amber-300 border border-amber-200/50 uppercase tracking-wider">
+                                    equiv: {item.qty * item.conversionFactor} {baseUnit}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                            <div>
+                              <label className="text-xs font-medium text-zinc-500">Unit</label>
+                              <select value={item.salesUnit || baseUnit} onChange={(event) => handleUnitChange(item.id, event.target.value)} className="h-9 w-full rounded-lg border bg-background px-2 text-xs">
+                                <option value={baseUnit}>{baseUnit}</option>
+                                {showAltUnit && (
+                                  <option value={product.altSalesUnit!}>{product.altSalesUnit}</option>
+                                )}
+                              </select>
+                            </div>
+                            <div>
+                              <label className="text-xs font-medium text-zinc-500">Conv. Factor</label>
+                              <Input 
+                                type="number" 
+                                value={item.conversionFactor ?? 1} 
+                                readOnly 
+                                disabled
+                                className="h-9 bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-500 text-xs font-mono select-none cursor-not-allowed"
+                              />
                             </div>
                             <div>
                               <label className="text-xs font-medium text-zinc-500">Unit Price</label>
-                              <Input type="number" value={item.unitPrice} onChange={(event) => updateLine(item.id, { unitPrice: Number(event.target.value) })} />
+                              <Input type="number" value={item.unitPrice} onChange={(event) => updateLine(item.id, { unitPrice: Number(event.target.value) })} className="font-mono text-xs" />
+                              {item.conversionFactor && item.conversionFactor > 1 && (
+                                <div className="mt-1 inline-flex items-center rounded-md bg-amber-50 dark:bg-amber-950/30 px-1.5 py-0.5 text-[9px] font-bold text-amber-800 dark:text-amber-300 border border-amber-200/50 uppercase tracking-wider">
+                                  calc: {basePrice} × {item.conversionFactor}
+                                </div>
+                              )}
                             </div>
                             <div>
                               <label className="text-xs font-medium text-zinc-500">Disc %</label>
-                              <Input type="number" value={item.discountPercent} onChange={(event) => updateLine(item.id, { discountPercent: Number(event.target.value) })} />
+                              <Input type="number" value={item.discountPercent} onChange={(event) => updateLine(item.id, { discountPercent: Number(event.target.value) })} className="font-mono text-xs" />
                             </div>
                             <div>
                               <label className="text-xs font-medium text-zinc-500">Line Total (NPR)</label>
-                              <p className="h-9 pt-2 text-sm font-semibold">{formatAmountOnly(Math.max(0, item.qty * item.unitPrice * (1 - item.discountPercent / 100)))}</p>
+                              <p className="h-9 pt-2 text-sm font-semibold font-mono">{formatAmountOnly(Math.max(0, item.qty * item.unitPrice * (1 - item.discountPercent / 100)))}</p>
                             </div>
                             <Button type="button" variant="outline" onClick={() => setItems((current) => current.filter((candidate) => candidate.id !== item.id))}>Remove</Button>
                           </div>

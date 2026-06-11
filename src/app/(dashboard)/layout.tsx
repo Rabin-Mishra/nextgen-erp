@@ -40,7 +40,7 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
 
   let lowStockCount = 0;
   for (const p of products) {
-    const stockQty = p.stockEntries.reduce((sum, entry) => sum + entry.quantity, 0);
+    const stockQty = p.stockEntries.reduce((sum, entry) => sum + entry.quantity.toNumber(), 0);
     if (stockQty <= p.reorderLevel) {
       lowStockCount++;
     }

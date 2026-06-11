@@ -138,7 +138,7 @@ export function DashboardSearchWidget({ data }: DashboardSearchWidgetProps) {
               onClick={() => setActiveTab("CUSTOMERS")}
               className="text-xs h-7 px-2.5 font-bold cursor-pointer"
             >
-              Customers ({filtered.customers.length})
+              Customers ({query.trim() ? filtered.customers.length : data.customers.length})
             </Button>
             <Button
               size="sm"
@@ -146,7 +146,7 @@ export function DashboardSearchWidget({ data }: DashboardSearchWidgetProps) {
               onClick={() => setActiveTab("VENDORS")}
               className="text-xs h-7 px-2.5 font-bold cursor-pointer"
             >
-              Vendors ({filtered.vendors.length})
+              Vendors ({query.trim() ? filtered.vendors.length : data.vendors.length})
             </Button>
             <Button
               size="sm"
@@ -154,7 +154,7 @@ export function DashboardSearchWidget({ data }: DashboardSearchWidgetProps) {
               onClick={() => setActiveTab("INVOICES")}
               className="text-xs h-7 px-2.5 font-bold cursor-pointer"
             >
-              Bills & Invoices ({filtered.invoices.length + filtered.purchaseOrders.length})
+              Bills & Invoices ({query.trim() ? (filtered.invoices.length + filtered.purchaseOrders.length) : (data.invoices.length + data.purchaseOrders.length)})
             </Button>
           </div>
         </div>

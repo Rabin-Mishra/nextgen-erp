@@ -122,8 +122,8 @@ async function main() {
               await tx.inventoryStock.update({
                 where: { id: masterStock.id },
                 data: {
-                  quantity: masterStock.quantity + ds.quantity,
-                  reservedQty: masterStock.reservedQty + ds.reservedQty,
+                  quantity: masterStock.quantity.plus(ds.quantity),
+                  reservedQty: masterStock.reservedQty.plus(ds.reservedQty),
                 },
               });
               // Delete duplicate stock record

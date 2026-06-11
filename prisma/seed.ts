@@ -689,7 +689,7 @@ async function main() {
           where: { productId_warehouseId: { productId: prod.id, warehouseId: wh.id } },
         });
 
-        if (currentStock && currentStock.quantity >= issueQty) {
+        if (currentStock && currentStock.quantity.toNumber() >= issueQty) {
           // Deduct from stock snapshot
           await prisma.inventoryStock.update({
             where: { productId_warehouseId: { productId: prod.id, warehouseId: wh.id } },
@@ -751,7 +751,7 @@ async function main() {
           where: { productId_warehouseId: { productId: p.id, warehouseId: wh.id } },
         });
 
-        if (currentStock && currentStock.quantity >= qty) {
+        if (currentStock && currentStock.quantity.toNumber() >= qty) {
           subtotal = subtotal.plus(total);
           invoiceItemsData.push({
             productId: p.id,
@@ -759,6 +759,7 @@ async function main() {
             unitPrice: price,
             totalPrice: total,
             warehouseId: wh.id,
+            purchasePrice: p.variant.purchasePrice, // Store variant cost price
           });
         }
       }
@@ -837,7 +838,7 @@ async function main() {
               productId: item.productId,
               warehouseId: item.warehouseId,
               quantity: -item.qty,
-              unitCost: item.unitPrice,
+              unitCost: item.purchasePrice, // Log correct cost price
               referenceType: "SALES_INVOICE",
               referenceId: invoice.id,
               userId: salesUser.id,

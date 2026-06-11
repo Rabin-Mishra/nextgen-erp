@@ -9,7 +9,7 @@ import { NPRAmount } from "@/components/shared/NPRAmount";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
 import { downloadLedgerPDF } from "@/lib/export/ledger-pdf";
 import { downloadLedgerExcel } from "@/lib/export/ledger-excel";
-import { PartyType, ChannelType } from "@/generated/prisma/client";
+import { PartyType, ChannelType } from "@/generated/prisma/enums";
 import { toast } from "sonner";
 import { DualDatePicker } from "@/components/shared/DualDatePicker";
 import { DualDateDisplay } from "@/components/shared/DualDateDisplay";

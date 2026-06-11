@@ -163,19 +163,35 @@ export async function createInvoice(data: CreateInvoiceInput, passedUserId?: str
       });
       if (!stock) throw new Error(`No stock record found for selected product and warehouse`);
 
-      const availableQty = stock.quantity - stock.reservedQty;
-      if (availableQty < item.qty) {
-        throw new Error(`${stock.product.name} has only ${availableQty} ${stock.product.unit} available in ${stock.warehouse.name}`);
+      const factor = toDecimal(item.conversionFactor ?? 1);
+      const baseQtyEquivalent = toDecimal(item.qty).times(factor);
+
+      const availableQty = toDecimal(stock.quantity).minus(stock.reservedQty);
+      if (availableQty.lessThan(baseQtyEquivalent)) {
+        throw new Error(`${stock.product.name} has only ${availableQty.toNumber()} ${stock.product.unit} available in ${stock.warehouse.name}`);
       }
 
-      const unitPrice = await resolveUnitPrice(tx, item.productId, parsed.invoiceType, item.unitPrice);
+      let unitPrice = toDecimal(item.unitPrice);
+      if (!item.unitPrice || unitPrice.lessThanOrEqualTo(0)) {
+        const basePrice = await resolveUnitPrice(tx, item.productId, parsed.invoiceType);
+        unitPrice = basePrice.times(factor);
+      }
+
       const lineDiscountPercent = toDecimal(item.discountPercent);
       const gross = unitPrice.times(item.qty);
       const lineDiscount = gross.times(lineDiscountPercent).div(100);
       const totalPrice = gross.minus(lineDiscount);
       subtotal = subtotal.plus(totalPrice);
 
-      preparedItems.push({ ...item, unitPrice, totalPrice, stock });
+      // Query active variant purchase price (cost price)
+      const variant = await tx.productVariant.findFirst({
+        where: { productId: item.productId, isActive: true },
+        orderBy: { effectiveDate: "desc" },
+        select: { purchasePrice: true }
+      });
+      const purchasePrice = variant ? toDecimal(variant.purchasePrice) : new Decimal(0);
+
+      preparedItems.push({ ...item, unitPrice, totalPrice, stock, factor, baseQtyEquivalent, purchasePrice });
     }
 
     const discountAmount = subtotal.times(discountPercent).div(100);
@@ -223,12 +239,15 @@ export async function createInvoice(data: CreateInvoiceInput, passedUserId?: str
           discountPercent: toDecimal(item.discountPercent),
           totalPrice: item.totalPrice,
           notes: item.notes,
+          salesUnit: item.salesUnit || item.stock.product.unit,
+          conversionFactor: item.factor,
+          baseQtyEquivalent: item.baseQtyEquivalent,
         },
       });
 
       await tx.inventoryStock.update({
         where: { productId_warehouseId: { productId: item.productId, warehouseId: item.warehouseId } },
-        data: { quantity: { decrement: item.qty } },
+        data: { quantity: { decrement: item.baseQtyEquivalent } },
       });
 
       await tx.stockTransaction.create({
@@ -236,12 +255,15 @@ export async function createInvoice(data: CreateInvoiceInput, passedUserId?: str
           type: "SALE_OUT",
           productId: item.productId,
           warehouseId: item.warehouseId,
-          quantity: -item.qty,
-          unitCost: item.unitPrice,
+          quantity: item.baseQtyEquivalent.negated(),
+          unitCost: item.purchasePrice, // Cost price (per base unit)
           referenceType: "SALES_INVOICE",
           referenceId: invoice.id,
           notes: `Sold via invoice ${invoice.invoiceNumber}`,
           userId: userId,
+          transactionUnit: item.salesUnit || item.stock.product.unit,
+          conversionFactor: item.factor,
+          originalQty: item.qty,
         },
       });
     }
@@ -458,7 +480,7 @@ export async function createSalesReturn(data: CreateReturnInput, userId?: string
   const result = await db.$transaction(async (tx) => {
     const invoice = await tx.salesInvoice.findUnique({
       where: { id: parsed.invoiceId },
-      include: { items: true },
+      include: { items: { include: { product: true } } },
     });
     if (!invoice) throw new Error("Invoice not found");
     if (invoice.status === "CANCELLED") throw new Error("Cannot return items from a cancelled invoice");
@@ -495,6 +517,9 @@ export async function createSalesReturn(data: CreateReturnInput, userId?: string
       const invoiceItem = invoice.items.find((item) => item.id === returnItem.invoiceItemId);
       if (!invoiceItem) throw new Error(`Invoice item ${returnItem.invoiceItemId} not found`);
 
+      const factor = toDecimal(invoiceItem.conversionFactor ?? 1);
+      const baseReturnQty = toDecimal(returnItem.qty).times(factor);
+
       // Check max returnable qty
       const existingReturns = await tx.stockTransaction.aggregate({
         where: {
@@ -506,9 +531,12 @@ export async function createSalesReturn(data: CreateReturnInput, userId?: string
         },
         _sum: { quantity: true },
       });
-      const returnedQty = existingReturns._sum.quantity ?? 0;
-      const returnableQty = invoiceItem.qty - returnedQty;
-      if (returnItem.qty > returnableQty) throw new Error(`Only ${returnableQty} units can be returned for selected item`);
+      const returnedBaseQty = toDecimal(existingReturns._sum.quantity);
+      const invoiceBaseQty = toDecimal(invoiceItem.baseQtyEquivalent || invoiceItem.qty);
+      const returnableBaseQty = invoiceBaseQty.minus(returnedBaseQty);
+      if (baseReturnQty.greaterThan(returnableBaseQty)) {
+        throw new Error(`Only ${returnableBaseQty.div(factor).toNumber()} units of ${invoiceItem.salesUnit || invoiceItem.product.unit} can be returned for selected item`);
+      }
 
       const perUnitValue = toDecimal(invoiceItem.totalPrice).div(invoiceItem.qty);
       const lineReturnValue = perUnitValue.times(returnItem.qty);
@@ -517,14 +545,22 @@ export async function createSalesReturn(data: CreateReturnInput, userId?: string
       // Increment stock quantity
       await tx.inventoryStock.upsert({
         where: { productId_warehouseId: { productId: invoiceItem.productId, warehouseId: invoiceItem.warehouseId } },
-        update: { quantity: { increment: returnItem.qty } },
+        update: { quantity: { increment: baseReturnQty } },
         create: {
           productId: invoiceItem.productId,
           warehouseId: invoiceItem.warehouseId,
-          quantity: returnItem.qty,
+          quantity: baseReturnQty,
           reservedQty: 0,
         },
       });
+
+      // Query active variant purchase price (cost price)
+      const variant = await tx.productVariant.findFirst({
+        where: { productId: invoiceItem.productId, isActive: true },
+        orderBy: { effectiveDate: "desc" },
+        select: { purchasePrice: true }
+      });
+      const purchasePrice = variant ? toDecimal(variant.purchasePrice) : new Decimal(0);
 
       // Stock transaction entry
       await tx.stockTransaction.create({
@@ -532,12 +568,15 @@ export async function createSalesReturn(data: CreateReturnInput, userId?: string
           type: "RETURN_IN",
           productId: invoiceItem.productId,
           warehouseId: invoiceItem.warehouseId,
-          quantity: returnItem.qty,
-          unitCost: perUnitValue,
+          quantity: baseReturnQty,
+          unitCost: purchasePrice, // Returned back to inventory at cost price
           referenceType: "SALES_RETURN",
           referenceId: salesReturn.id,
           notes: parsed.reason,
           userId: createdBy,
+          transactionUnit: invoiceItem.salesUnit,
+          conversionFactor: factor,
+          originalQty: returnItem.qty,
         },
       });
 
@@ -642,21 +681,35 @@ export async function cancelInvoice(id: string, userId?: string) {
 
   const result = await db.$transaction(async (tx) => {
     for (const item of invoice.items) {
+      const baseQty = toDecimal(item.baseQtyEquivalent || item.qty);
+      const factor = toDecimal(item.conversionFactor || 1);
+
       await tx.inventoryStock.update({
         where: { productId_warehouseId: { productId: item.productId, warehouseId: item.warehouseId } },
-        data: { quantity: { increment: item.qty } },
+        data: { quantity: { increment: baseQty } },
       });
+      // Query active variant purchase price (cost price)
+      const variant = await tx.productVariant.findFirst({
+        where: { productId: item.productId, isActive: true },
+        orderBy: { effectiveDate: "desc" },
+        select: { purchasePrice: true }
+      });
+      const purchasePrice = variant ? toDecimal(variant.purchasePrice) : new Decimal(0);
+
       await tx.stockTransaction.create({
         data: {
           type: "RETURN_IN",
           productId: item.productId,
           warehouseId: item.warehouseId,
-          quantity: item.qty,
-          unitCost: item.unitPrice,
+          quantity: baseQty,
+          unitCost: purchasePrice, // Returned back to inventory at cost price
           referenceType: "INVOICE_CANCEL",
           referenceId: invoice.id,
           notes: `Cancelled draft invoice ${invoice.invoiceNumber}`,
           userId: createdBy,
+          transactionUnit: item.salesUnit,
+          conversionFactor: factor,
+          originalQty: item.qty,
         },
       });
     }

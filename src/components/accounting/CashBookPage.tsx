@@ -13,7 +13,7 @@ import { Wallet, Coins, Building, QrCode, Plus, Calendar, RefreshCw } from "luci
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { PaymentMode } from "@/generated/prisma/client";
+import { PaymentMode } from "@/generated/prisma/enums";
 import { DualDatePicker } from "@/components/shared/DualDatePicker";
 import { DualDateDisplay } from "@/components/shared/DualDateDisplay";
 

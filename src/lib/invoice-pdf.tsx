@@ -30,11 +30,18 @@ const styles = StyleSheet.create({
   muted: {
     color: "#71717a",
   },
-  tableHeader: {
-    flexDirection: "row",
+  tableHeaderContainer: {
     backgroundColor: "#f4f4f5",
     borderBottom: "1px solid #d4d4d8",
-    paddingVertical: 6,
+    paddingVertical: 5,
+  },
+  tableHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  tableHeaderLabel: {
+    fontWeight: "bold",
+    fontSize: 9,
   },
   tableRow: {
     flexDirection: "row",
@@ -42,16 +49,25 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   item: {
-    width: "46%",
+    width: "35%",
+    paddingHorizontal: 4,
+  },
+  altUnit: {
+    width: "15%",
     paddingHorizontal: 4,
   },
   qty: {
-    width: "12%",
+    width: "10%",
     textAlign: "right",
     paddingHorizontal: 4,
   },
-  amount: {
-    width: "21%",
+  rate: {
+    width: "20%",
+    textAlign: "right",
+    paddingHorizontal: 4,
+  },
+  total: {
+    width: "20%",
     textAlign: "right",
     paddingHorizontal: 4,
   },
@@ -196,11 +212,21 @@ export function InvoicePDF({
           </View>
         </View>
 
-        <View style={styles.tableHeader}>
-          <Text style={styles.item}>Item & Returns Description</Text>
-          <Text style={styles.qty}>Qty</Text>
-          <Text style={styles.amount}>Rate (NPR)</Text>
-          <Text style={styles.amount}>Total (NPR)</Text>
+        <View style={styles.tableHeaderContainer}>
+          <View style={styles.tableHeaderRow}>
+            <Text style={[styles.item, styles.tableHeaderLabel]}>Item & Returns Description</Text>
+            <Text style={[styles.altUnit, styles.tableHeaderLabel]}>Alternate Unit</Text>
+            <Text style={[styles.qty, styles.tableHeaderLabel]}>Qty</Text>
+            <Text style={[styles.rate, styles.tableHeaderLabel]}>Rate</Text>
+            <Text style={[styles.total, styles.tableHeaderLabel]}>Total</Text>
+          </View>
+          <View style={[styles.tableHeaderRow, { marginTop: 2 }]}>
+            <Text style={[styles.item, styles.tableHeaderLabel]}></Text>
+            <Text style={[styles.altUnit, styles.tableHeaderLabel, { color: "#71717a", fontSize: 7 }]}>(UoM)</Text>
+            <Text style={[styles.qty, styles.tableHeaderLabel]}></Text>
+            <Text style={[styles.rate, styles.tableHeaderLabel, { color: "#71717a" }]}>(NPR)</Text>
+            <Text style={[styles.total, styles.tableHeaderLabel, { color: "#71717a" }]}>(NPR)</Text>
+          </View>
         </View>
         {invoice.items.map((item) => {
           const retInfo = returnsByProduct.get(item.productId);
@@ -236,6 +262,12 @@ export function InvoicePDF({
                 ))}
               </View>
               
+              <Text style={styles.altUnit}>
+                {item.productAltSalesUnit && item.productAltSalesUnit !== item.productBaseUnit
+                  ? `1 ${item.productAltSalesUnit} = ${Number(item.productAltSalesConversionFactor)} ${item.productBaseUnit}`
+                  : "—"}
+              </Text>
+              
               <View style={styles.qty}>
                 {retInfo ? (
                   <View style={{ alignItems: "flex-end" }}>
@@ -248,11 +280,11 @@ export function InvoicePDF({
                 )}
               </View>
               
-              <View style={styles.amount}>
+              <View style={styles.rate}>
                 <Text>{money(item.unitPrice)}</Text>
               </View>
               
-              <View style={styles.amount}>
+              <View style={styles.total}>
                 {retInfo ? (
                   <View style={{ alignItems: "flex-end" }}>
                     <Text style={styles.strikeText}>{money(item.totalPrice)}</Text>

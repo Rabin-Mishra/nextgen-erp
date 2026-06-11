@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { Unit } from "../../generated/prisma/enums";
 
 const dateInput = z.union([z.string(), z.date()]);
 const moneyInput = z.union([z.string(), z.number()]);
@@ -12,9 +13,11 @@ export const createPurchaseOrderSchema = z.object({
     .array(
       z.object({
         productId: z.string().min(1, "Product is required"),
-        orderedQty: z.number().int().positive("Quantity must be positive"),
+        orderedQty: z.number().positive("Quantity must be positive"),
         unitPrice: moneyInput,
         notes: z.string().optional(),
+        orderedUnit: z.nativeEnum(Unit).optional().nullable(),
+        conversionFactor: z.number().positive().optional().nullable(),
       })
     )
     .min(1, "At least one item is required"),
@@ -35,7 +38,7 @@ export const updatePurchaseOrderSchema = z.object({
     .array(
       z.object({
         id: z.string().min(1),
-        orderedQty: z.number().int().positive(),
+        orderedQty: z.number().positive(),
         unitPrice: moneyInput.optional(),
       })
     )
@@ -47,7 +50,7 @@ export type UpdatePurchaseOrderInput = z.infer<typeof updatePurchaseOrderSchema>
 export const addPOItemSchema = z.object({
   purchaseOrderId: z.string().min(1),
   productId: z.string().min(1),
-  orderedQty: z.number().int().positive("Quantity must be positive"),
+  orderedQty: z.number().positive("Quantity must be positive"),
   unitPrice: moneyInput,
   notes: z.string().optional(),
 });
@@ -60,7 +63,7 @@ export const receiveGoodsSchema = z.object({
     .array(
       z.object({
         poItemId: z.string().min(1),
-        receivedQty: z.number().int().positive("Received quantity must be positive"),
+        receivedQty: z.number().positive("Received quantity must be positive"),
         receivedPrice: moneyInput,
       })
     )
@@ -111,11 +114,17 @@ export const purchaseOrderItemSchema = z.object({
   productCode: z.string(),
   productName: z.string(),
   productUnit: z.string(),
-  orderedQty: z.number().int(),
-  receivedQty: z.number().int(),
+  orderedQty: z.preprocess((val: any) => (val ? Number(val.toString()) : 0), z.number()),
+  receivedQty: z.preprocess((val: any) => (val ? Number(val.toString()) : 0), z.number()),
   unitPrice: z.string(),
   totalPrice: z.string(),
   notes: z.string().nullable(),
+  orderedUnit: z.string().optional().nullable(),
+  conversionFactor: z.preprocess((val: any) => (val ? Number(val.toString()) : null), z.number().optional().nullable()),
+  baseQtyEquivalent: z.preprocess((val: any) => (val ? Number(val.toString()) : null), z.number().optional().nullable()),
+  productBaseUnit: z.string().optional().nullable(),
+  productPurchaseUnit: z.string().optional().nullable(),
+  productPurchaseConversionFactor: z.preprocess((val: any) => (val ? Number(val.toString()) : null), z.number().optional().nullable()),
 });
 
 export type PurchaseOrderItemSchema = z.infer<typeof purchaseOrderItemSchema>;

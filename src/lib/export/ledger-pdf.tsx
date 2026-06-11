@@ -1,5 +1,5 @@
 import { Document, Page, StyleSheet, Text, View, pdf } from "@react-pdf/renderer";
-import { PartyType } from "@/generated/prisma/client";
+import { PartyType } from "@/generated/prisma/enums";
 import { fetchPartyLedgerAction } from "@/modules/accounting/actions";
 import { getDb } from "@/lib/db";
 import Decimal from "decimal.js";

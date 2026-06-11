@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { Unit } from "../../generated/prisma/enums";
 
 const dateInput = z.union([z.string(), z.date()]);
 const moneyInput = z.union([z.string(), z.number()]);
@@ -11,10 +12,12 @@ export const paymentInputMethodSchema = z.enum(["CASH", "BANK", "BANK_TRANSFER",
 export const createInvoiceItemSchema = z.object({
   productId: z.string().min(1, "Product is required"),
   warehouseId: z.string().min(1, "Warehouse is required"),
-  qty: z.number().int().positive("Quantity must be positive"),
+  qty: z.number().positive("Quantity must be positive"),
   unitPrice: moneyInput.optional(),
   discountPercent: moneyInput.optional(),
   notes: z.string().optional(),
+  salesUnit: z.nativeEnum(Unit).optional().nullable(),
+  conversionFactor: z.number().positive().optional().nullable(),
 });
 
 export type CreateInvoiceItemInput = z.infer<typeof createInvoiceItemSchema>;
@@ -43,11 +46,11 @@ export const quickSaleSchema = z.object({
   invoiceType: invoiceTypeSchema.default("RETAIL"),
   warehouseId: z.string().min(1),
   paymentMethod: paymentInputMethodSchema.default("CASH"),
-  items: z
+    items: z
     .array(
       z.object({
         productId: z.string().min(1),
-        qty: z.number().int().positive(),
+        qty: z.number().positive(),
       })
     )
     .min(1),
@@ -73,7 +76,7 @@ export const createReturnSchema = z.object({
     .array(
       z.object({
         invoiceItemId: z.string().min(1),
-        qty: z.number().int().positive("Return quantity must be positive"),
+        qty: z.preprocess((val: any) => (val ? Number(val.toString()) : 0), z.number().positive("Return quantity must be positive")),
       })
     )
     .min(1, "At least one item must be returned"),
@@ -111,11 +114,17 @@ export const salesInvoiceItemSchema = z.object({
   productUnit: z.string(),
   warehouseId: z.string(),
   warehouseName: z.string(),
-  qty: z.number().int(),
+  qty: z.preprocess((val: any) => (val ? Number(val.toString()) : 0), z.number()),
   unitPrice: z.string(),
   discountPercent: z.string(),
   totalPrice: z.string(),
   notes: z.string().nullable(),
+  salesUnit: z.string().optional().nullable(),
+  conversionFactor: z.preprocess((val: any) => (val ? Number(val.toString()) : null), z.number().optional().nullable()),
+  baseQtyEquivalent: z.preprocess((val: any) => (val ? Number(val.toString()) : null), z.number().optional().nullable()),
+  productBaseUnit: z.string().optional().nullable(),
+  productAltSalesUnit: z.string().optional().nullable(),
+  productAltSalesConversionFactor: z.preprocess((val: any) => (val ? Number(val.toString()) : null), z.number().optional().nullable()),
 });
 
 export type SalesInvoiceItemSchema = z.infer<typeof salesInvoiceItemSchema>;
@@ -171,9 +180,11 @@ export const salesInvoiceSchema = z.object({
             productCode: z.string(),
             productName: z.string(),
             productUnit: z.string(),
-            qty: z.number().int(),
+            qty: z.preprocess((val: any) => (val ? Number(val.toString()) : 0), z.number()),
             unitPrice: z.string(),
             totalPrice: z.string(),
+            salesUnit: z.string().optional().nullable(),
+            conversionFactor: z.preprocess((val: any) => (val ? Number(val.toString()) : null), z.number().optional().nullable()),
           })
         ),
       })
@@ -253,7 +264,7 @@ export const salesReturnSchema = z.object({
   invoiceNumber: z.string().nullable(),
   productName: z.string(),
   warehouseName: z.string(),
-  quantity: z.number().int(),
+  quantity: z.preprocess((val: any) => (val ? Number(val.toString()) : 0), z.number()),
   value: z.string(),
   reason: z.string().nullable(),
   createdAt: z.string(),
@@ -292,6 +303,10 @@ export const productOptionSchema = z.object({
   code: z.string(),
   name: z.string(),
   unit: z.string(),
+  purchaseUnit: z.string().optional().nullable(),
+  purchaseConversionFactor: z.preprocess((val: any) => (val ? Number(val.toString()) : null), z.number().optional().nullable()),
+  altSalesUnit: z.string().optional().nullable(),
+  altSalesConversionFactor: z.preprocess((val: any) => (val ? Number(val.toString()) : null), z.number().optional().nullable()),
   retailPrice: z.string(),
   wholesalePrice: z.string(),
   projectPrice: z.string(),
@@ -299,7 +314,7 @@ export const productOptionSchema = z.object({
     z.object({
       warehouseId: z.string(),
       warehouseName: z.string(),
-      availableQty: z.number().int(),
+      availableQty: z.preprocess((val: any) => (val ? Number(val.toString()) : 0), z.number()),
     })
   ),
 });

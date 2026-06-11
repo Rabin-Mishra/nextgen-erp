@@ -216,25 +216,14 @@ export function ProjectDetailClient({ data }: ProjectDetailClientProps) {
             <CardTitle className="text-xs font-bold uppercase tracking-wider text-zinc-400">Project Profitability</CardTitle>
             <TrendingUp className="h-4.5 w-4.5 text-orange-500" />
           </CardHeader>
-          <CardContent className="pt-2 space-y-3">
-            <div className="flex flex-col">
-              <span className="text-[9px] text-zinc-450 font-bold uppercase tracking-wide">Realized Profit (To Date)</span>
-              <div className="text-lg font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
-                {formatAmountOnly(profit)}
-              </div>
-              <p className="text-[10px] text-zinc-400 font-semibold mt-0.5">
-                Realized Margin: <span className="font-bold text-green-600 dark:text-green-400">{margin.toFixed(1)}%</span>
-              </p>
+          <CardContent className="pt-2">
+            <div className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
+              {formatAmountOnly(netProfit)}
             </div>
-            <div className="border-t pt-2 flex flex-col">
-              <span className="text-[9px] text-zinc-450 font-bold uppercase tracking-wide">Net Profit</span>
-              <div className="text-sm font-extrabold text-zinc-800 dark:text-zinc-200">
-                {formatAmountOnly(netProfit)}
-              </div>
-              <p className="text-[10px] text-zinc-400 font-semibold mt-0.5">
-                Net Margin: <span className={`font-bold ${netProfit >= 0 ? "text-green-600 dark:text-green-400" : "text-rose-500"}`}>{netMargin.toFixed(1)}%</span>
-              </p>
-            </div>
+            <p className="text-xs text-zinc-400 font-medium mt-1">Net Profit (Contract - Billed)</p>
+            <p className="text-[10px] text-zinc-405 font-semibold mt-0.5">
+              Net Margin: <span className={`font-bold ${netProfit >= 0 ? "text-green-600 dark:text-green-400" : "text-rose-500"}`}>{netMargin.toFixed(1)}%</span>
+            </p>
           </CardContent>
         </Card>
       </div>

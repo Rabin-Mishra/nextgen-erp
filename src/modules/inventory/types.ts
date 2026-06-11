@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { StockTransactionType, Unit } from "../../generated/prisma/client";
+import { StockTransactionType, Unit } from "../../generated/prisma/enums";
 
 export const inventoryItemSchema = z.object({
   id: z.string(),
@@ -10,13 +10,17 @@ export const inventoryItemSchema = z.object({
   brand: z.string().nullable(),
   warehouse: z.string(),
   warehouseId: z.string(),
-  unit: z.string(),
-  quantity: z.number().int(),
-  reservedQty: z.number().int().nonnegative(),
+  unit: z.nativeEnum(Unit),
+  quantity: z.preprocess((val: any) => (val ? Number(val.toString()) : 0), z.number()),
+  reservedQty: z.preprocess((val: any) => (val ? Number(val.toString()) : 0), z.number().nonnegative()),
   minStockLevel: z.number().int().nonnegative(),
   reorderLevel: z.number().int().nonnegative(),
   status: z.enum(["ok", "reorder"]),
   lastUpdated: z.string(),
+  purchaseUnit: z.nativeEnum(Unit).optional().nullable(),
+  purchaseConversionFactor: z.preprocess((val: any) => (val ? Number(val.toString()) : null), z.number().optional().nullable()),
+  altSalesUnit: z.nativeEnum(Unit).optional().nullable(),
+  altSalesConversionFactor: z.preprocess((val: any) => (val ? Number(val.toString()) : null), z.number().optional().nullable()),
 });
 
 export type InventoryItemSchema = z.infer<typeof inventoryItemSchema>;
@@ -27,10 +31,14 @@ export const createInventoryItemSchema = z.object({
   brandId: z.string().min(1, "Please select a brand"),
   warehouseId: z.string().min(1, "Please select a warehouse"),
   unit: z.nativeEnum(Unit),
+  purchaseUnit: z.nativeEnum(Unit).optional().nullable(),
+  purchaseConversionFactor: z.number().positive().optional().nullable(),
+  altSalesUnit: z.nativeEnum(Unit).optional().nullable(),
+  altSalesConversionFactor: z.number().positive().optional().nullable(),
   description: z.string().optional(),
   minStockLevel: z.number().int().nonnegative().default(0),
   reorderLevel: z.number().int().nonnegative().default(0),
-  quantity: z.number().int().nonnegative(),
+  quantity: z.number().nonnegative(),
   variants: z
     .array(
       z.object({
@@ -51,7 +59,7 @@ export type CreateInventoryItemInput = z.infer<typeof createInventoryItemSchema>
 
 export const adjustInventoryQuantitySchema = z.object({
   stockId: z.string().min(1),
-  adjustment: z.number().int(),
+  adjustment: z.number(),
   notes: z.string().optional(),
 });
 
@@ -59,7 +67,7 @@ export type AdjustInventoryQuantityInput = z.infer<typeof adjustInventoryQuantit
 
 export const inventorySummarySchema = z.object({
   totalProducts: z.number().int().nonnegative(),
-  totalStock: z.number().int().nonnegative(),
+  totalStock: z.number().nonnegative(),
   lowStockCount: z.number().int().nonnegative(),
 });
 
@@ -70,7 +78,7 @@ export const stockTransactionSchema = z.object({
   type: z.nativeEnum(StockTransactionType),
   productId: z.string(),
   warehouseId: z.string(),
-  quantity: z.number().int(),
+  quantity: z.preprocess((val: any) => (val ? Number(val.toString()) : 0), z.number()),
   unitCost: z.number(),
   referenceType: z.string().nullable(),
   referenceId: z.string().nullable(),

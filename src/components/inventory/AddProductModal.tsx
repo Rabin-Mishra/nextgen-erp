@@ -26,7 +26,11 @@ export function AddProductModal() {
     categoryId: "",
     brandId: "",
     warehouseId: "",
-    unit: "BAG",
+    unit: "PCS",
+    purchaseUnit: "",
+    purchaseConversionFactor: 1,
+    altSalesUnit: "",
+    altSalesConversionFactor: 1,
     description: "",
     minStockLevel: 0,
     reorderLevel: 0,
@@ -127,6 +131,13 @@ export function AddProductModal() {
     if (form.reorderLevel < 0)
       newErrors.reorderLevel = "Reorder level cannot be negative";
 
+    if (form.purchaseUnit && (!form.purchaseConversionFactor || form.purchaseConversionFactor <= 0)) {
+      newErrors.purchaseConversionFactor = "Conversion factor must be greater than 0";
+    }
+    if (form.altSalesUnit && (!form.altSalesConversionFactor || form.altSalesConversionFactor <= 0)) {
+      newErrors.altSalesConversionFactor = "Conversion factor must be greater than 0";
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   }
@@ -161,10 +172,17 @@ export function AddProductModal() {
     if (!validateStep2()) return;
     try {
       setSubmitting(true);
+      const payload = {
+        ...form,
+        purchaseUnit: form.purchaseUnit || null,
+        purchaseConversionFactor: form.purchaseUnit ? Number(form.purchaseConversionFactor) : null,
+        altSalesUnit: form.altSalesUnit || null,
+        altSalesConversionFactor: form.altSalesUnit ? Number(form.altSalesConversionFactor) : null,
+      };
       const res = await fetch("/api/inventory/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify(payload),
       });
       const j = await res.json();
       if (!res.ok) throw new Error(j.error || "Failed to create product");
@@ -175,7 +193,11 @@ export function AddProductModal() {
         categoryId: "",
         brandId: "",
         warehouseId: "",
-        unit: "BAG",
+        unit: "PCS",
+        purchaseUnit: "",
+        purchaseConversionFactor: 1,
+        altSalesUnit: "",
+        altSalesConversionFactor: 1,
         description: "",
         minStockLevel: 0,
         reorderLevel: 0,
@@ -334,16 +356,11 @@ export function AddProductModal() {
                   id="unit"
                   value={form.unit}
                   onChange={(e) => update("unit", e.target.value)}
-                  className="w-full h-10 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-transparent px-3 py-2 text-sm text-zinc-900 dark:text-zinc-50 focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  className="w-full h-10 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-transparent px-3 py-2 text-sm text-zinc-900 dark:text-zinc-50 focus:outline-none focus:ring-2 focus:ring-primary/20 bg-white dark:bg-zinc-950"
                 >
-                  <option value="BAG">BAG</option>
-                  <option value="PCS">PCS</option>
-                  <option value="METER">METER</option>
-                  <option value="KG">KG</option>
-                  <option value="LITRE">LITRE</option>
-                  <option value="SQ_FT">SQ FT</option>
-                  <option value="ROLL">ROLL</option>
-                  <option value="BOX">BOX</option>
+                  {["BAG", "PCS", "METER", "KG", "LITRE", "SQ_FT", "ROLL", "BOX", "CARTON", "TIN", "DRUM", "SHEET", "BUNDLE", "SET", "PAIR", "FEET", "TON"].map(u => (
+                    <option key={u} value={u}>{u}</option>
+                  ))}
                 </select>
                 {errors.unit && (
                   <span className="text-xs text-rose-500 font-medium">
@@ -398,6 +415,102 @@ export function AddProductModal() {
                     {errors.reorderLevel}
                   </span>
                 )}
+              </div>
+
+              {/* UoM Configurations */}
+              <div className="space-y-4 col-span-2 border-t border-zinc-100 dark:border-zinc-900 pt-4">
+                <h4 className="text-xs font-bold text-zinc-600 dark:text-zinc-400 uppercase tracking-wide">
+                  Alternate Units of Measure (UoM)
+                </h4>
+                <div className="grid grid-cols-2 gap-4">
+                  {/* Purchase UoM */}
+                  <div className="p-3 border border-zinc-100 dark:border-zinc-900 rounded-xl bg-zinc-50/30 dark:bg-zinc-900/10 space-y-3">
+                    <span className="text-xs font-bold text-amber-500 uppercase tracking-wide">
+                      Default Purchase Unit
+                    </span>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="purchaseUnit" className="text-[11px] font-bold text-zinc-500 uppercase">
+                        Purchase Unit
+                      </Label>
+                      <select
+                        id="purchaseUnit"
+                        value={form.purchaseUnit || ""}
+                        onChange={(e) => update("purchaseUnit", e.target.value || "")}
+                        className="w-full h-10 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-transparent px-3 py-2 text-sm text-zinc-900 dark:text-zinc-50 bg-white dark:bg-zinc-950"
+                      >
+                        <option value="">Same as Base ({form.unit})</option>
+                        {["BAG", "PCS", "METER", "KG", "LITRE", "SQ_FT", "ROLL", "BOX", "CARTON", "TIN", "DRUM", "SHEET", "BUNDLE", "SET", "PAIR", "FEET", "TON"].map(u => (
+                          <option key={u} value={u}>{u}</option>
+                        ))}
+                      </select>
+                    </div>
+                    {form.purchaseUnit && form.purchaseUnit !== form.unit && (
+                      <div className="space-y-1.5 animate-fadeIn">
+                        <Label htmlFor="purchaseConversionFactor" className="text-[11px] font-bold text-zinc-500 uppercase">
+                          Conversion Factor (1 {form.purchaseUnit} = X {form.unit})
+                        </Label>
+                        <Input
+                          id="purchaseConversionFactor"
+                          type="number"
+                          step="any"
+                          placeholder="e.g. 10"
+                          value={form.purchaseConversionFactor}
+                          onChange={(e) => update("purchaseConversionFactor", parseFloat(e.target.value) || "")}
+                          className="h-10 rounded-xl border-zinc-200 dark:border-zinc-800 font-mono"
+                        />
+                        {errors.purchaseConversionFactor && (
+                          <span className="text-xs text-rose-500 font-medium">
+                            {errors.purchaseConversionFactor}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Sales UoM */}
+                  <div className="p-3 border border-zinc-100 dark:border-zinc-900 rounded-xl bg-zinc-50/30 dark:bg-zinc-900/10 space-y-3">
+                    <span className="text-xs font-bold text-amber-500 uppercase tracking-wide">
+                      Alternate Sales Unit
+                    </span>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="altSalesUnit" className="text-[11px] font-bold text-zinc-500 uppercase">
+                        Sales Unit
+                      </Label>
+                      <select
+                        id="altSalesUnit"
+                        value={form.altSalesUnit || ""}
+                        onChange={(e) => update("altSalesUnit", e.target.value || "")}
+                        className="w-full h-10 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-transparent px-3 py-2 text-sm text-zinc-900 dark:text-zinc-50 bg-white dark:bg-zinc-950"
+                      >
+                        <option value="">Same as Base ({form.unit})</option>
+                        {["BAG", "PCS", "METER", "KG", "LITRE", "SQ_FT", "ROLL", "BOX", "CARTON", "TIN", "DRUM", "SHEET", "BUNDLE", "SET", "PAIR", "FEET", "TON"].map(u => (
+                          <option key={u} value={u}>{u}</option>
+                        ))}
+                      </select>
+                    </div>
+                    {form.altSalesUnit && form.altSalesUnit !== form.unit && (
+                      <div className="space-y-1.5 animate-fadeIn">
+                        <Label htmlFor="altSalesConversionFactor" className="text-[11px] font-bold text-zinc-500 uppercase">
+                          Conversion Factor (1 {form.altSalesUnit} = X {form.unit})
+                        </Label>
+                        <Input
+                          id="altSalesConversionFactor"
+                          type="number"
+                          step="any"
+                          placeholder="e.g. 10"
+                          value={form.altSalesConversionFactor}
+                          onChange={(e) => update("altSalesConversionFactor", parseFloat(e.target.value) || "")}
+                          className="h-10 rounded-xl border-zinc-200 dark:border-zinc-800 font-mono"
+                        />
+                        {errors.altSalesConversionFactor && (
+                          <span className="text-xs text-rose-500 font-medium">
+                            {errors.altSalesConversionFactor}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
 
               <div className="space-y-1.5 col-span-2">

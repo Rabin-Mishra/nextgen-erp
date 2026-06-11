@@ -28,6 +28,7 @@ interface LineItem {
   quantity: number;
   unit: string;
   unitPrice: number;
+  conversionFactor: number;
   notes: string;
 }
 
@@ -76,6 +77,7 @@ export function NewPurchaseOrderForm({ userId }: NewPurchaseOrderFormProps) {
         quantity: 1,
         unit: "PCS",
         unitPrice: 0,
+        conversionFactor: 1,
         notes: "",
       },
     ]);
@@ -89,17 +91,53 @@ export function NewPurchaseOrderForm({ userId }: NewPurchaseOrderFormProps) {
     const product = products.find((p) => p.id === selectedProductId);
     if (!product) return;
 
+    const variant = product.variants?.find((v: any) => v.supplierId === supplierId);
+    const basePrice = variant ? Number(variant.purchasePrice) : 0;
+    const defaultUnit = product.purchaseUnit || product.unit;
+    const factor = product.purchaseUnit ? Number(product.purchaseConversionFactor) : 1;
+    const unitPrice = basePrice * factor;
+
     setItems(
       items.map((item) =>
         item.id === itemId
           ? {
               ...item,
               productId: selectedProductId,
-              unit: product.unit,
-              unitPrice: 0,
+              unit: defaultUnit,
+              unitPrice: unitPrice,
+              conversionFactor: factor,
             }
           : item,
       ),
+    );
+  };
+
+  const handleUnitChange = (itemId: string, newUnit: string) => {
+    setItems(
+      items.map((item) => {
+        if (item.id !== itemId) return item;
+
+        const product = products.find((p) => p.id === item.productId);
+        if (!product) return { ...item, unit: newUnit };
+
+        let factor = 1;
+        if (newUnit === product.purchaseUnit) {
+          factor = Number(product.purchaseConversionFactor) || 1;
+        } else if (newUnit === product.altSalesUnit) {
+          factor = Number(product.altSalesConversionFactor) || 1;
+        }
+
+        const variant = product.variants?.find((v: any) => v.supplierId === supplierId);
+        const basePrice = variant ? Number(variant.purchasePrice) : 0;
+        const unitPrice = basePrice * factor;
+
+        return {
+          ...item,
+          unit: newUnit,
+          conversionFactor: factor,
+          unitPrice,
+        };
+      })
     );
   };
 
@@ -110,9 +148,9 @@ export function NewPurchaseOrderForm({ userId }: NewPurchaseOrderFormProps) {
   };
 
   // Calculations
-  const subtotal = 0;
-  const tax = 0;
-  const total = 0;
+  const subtotal = items.reduce((sum, item) => sum + (item.unitPrice * item.quantity), 0);
+  const tax = applyVat ? (subtotal - discount) * 0.13 : 0;
+  const total = subtotal - discount + tax;
 
   const handleCreate = async (shouldSubmit: boolean) => {
     if (!supplierId) {
@@ -136,11 +174,13 @@ export function NewPurchaseOrderForm({ userId }: NewPurchaseOrderFormProps) {
       items: items.map((item) => ({
         productId: item.productId,
         orderedQty: Number(item.quantity),
-        unitPrice: 0,
+        unitPrice: Number(item.unitPrice),
         notes: item.notes || undefined,
+        orderedUnit: item.unit,
+        conversionFactor: Number(item.conversionFactor),
       })),
-      discountAmount: 0,
-      taxAmount: 0,
+      discountAmount: Number(discount),
+      taxAmount: Number(tax),
     };
 
     // Client-side Zod validation
@@ -314,132 +354,220 @@ export function NewPurchaseOrderForm({ userId }: NewPurchaseOrderFormProps) {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {items.map((item, index) => (
-                    <div
-                      key={item.id}
-                      className="grid grid-cols-12 gap-3 items-end p-4 border border-zinc-200 rounded-xl bg-white relative shadow-sm hover:border-zinc-300 transition-colors duration-150"
-                    >
-                      {/* Product select */}
-                      <div className="col-span-12 sm:col-span-4">
-                        <div className="flex justify-between items-center mb-1">
-                          <label className="text-[10px] font-semibold text-zinc-500 block">
-                            Product *
-                          </label>
-                          <a
-                            href="/inventory?addProduct=true"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-[9px] font-bold text-blue-600 hover:text-blue-700 hover:underline flex items-center gap-0.5"
+                  {items.map((item, index) => {
+                    const product = products.find((p) => p.id === item.productId);
+                    const baseUnit = product ? product.unit : "PCS";
+                    const equivalentBaseQty = item.quantity * item.conversionFactor;
+
+                    return (
+                      <div
+                        key={item.id}
+                        className="grid grid-cols-12 gap-3 items-end p-4 border border-zinc-200 rounded-xl bg-white relative shadow-sm hover:border-zinc-300 transition-colors duration-150"
+                      >
+                        {/* Product select */}
+                        <div className="col-span-12 sm:col-span-3">
+                          <div className="flex justify-between items-center mb-1">
+                            <label className="text-[10px] font-semibold text-zinc-500 block">
+                              Product *
+                            </label>
+                            <a
+                              href="/inventory?addProduct=true"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-[9px] font-bold text-blue-600 hover:text-blue-700 hover:underline flex items-center gap-0.5"
+                            >
+                              + Create Product
+                            </a>
+                          </div>
+                          <select
+                            value={item.productId}
+                            onChange={(e) =>
+                              handleProductChange(item.id, e.target.value)
+                            }
+                            className="w-full h-9 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-xs text-zinc-900 focus:outline-none focus:ring-2 focus:ring-blue-500/50 shadow-sm"
                           >
-                            + Create Product
-                          </a>
+                            <option value="">-- Select Product --</option>
+                            {products.map((p) => (
+                              <option key={p.id} value={p.id}>
+                                [{p.code}] {p.name}
+                              </option>
+                            ))}
+                          </select>
                         </div>
-                        <select
-                          value={item.productId}
-                          onChange={(e) =>
-                            handleProductChange(item.id, e.target.value)
-                          }
-                          className="w-full h-9 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-xs text-zinc-900 focus:outline-none focus:ring-2 focus:ring-blue-500/50 shadow-sm"
-                        >
-                          <option value="">-- Select Product --</option>
-                          {products.map((p) => (
-                            <option key={p.id} value={p.id}>
-                              [{p.code}] {p.name}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
 
-                      {/* Quantity input */}
-                      <div className="col-span-6 sm:col-span-2">
-                        <label className="text-[10px] font-semibold text-zinc-500 block mb-1">
-                          Quantity *
-                        </label>
-                        <Input
-                          type="number"
-                          placeholder="0"
-                          value={item.quantity}
-                          min={1}
-                          onChange={(e) =>
-                            updateItem(item.id, {
-                              quantity: Math.max(
-                                1,
-                                parseInt(e.target.value) || 0,
-                              ),
-                            })
-                          }
-                          className="h-9 bg-white border-zinc-300 text-zinc-900 text-xs shadow-sm focus:border-blue-500"
-                        />
-                      </div>
+                        {/* Quantity input */}
+                        <div className="col-span-6 sm:col-span-1.5">
+                          <label className="text-[10px] font-semibold text-zinc-500 block mb-1">
+                            Quantity *
+                          </label>
+                          <Input
+                            type="number"
+                            placeholder="0"
+                            value={item.quantity}
+                            min={1}
+                            onChange={(e) =>
+                              updateItem(item.id, {
+                                quantity: Math.max(
+                                  1,
+                                  parseInt(e.target.value) || 0,
+                                ),
+                              })
+                            }
+                            className="h-9 bg-white border-zinc-300 text-zinc-900 text-xs shadow-sm focus:border-blue-500"
+                          />
+                        </div>
 
-                      {/* Unit select dropdown */}
-                      <div className="col-span-6 sm:col-span-1.5">
-                        <label className="text-[10px] font-semibold text-zinc-500 block mb-1">
-                          Unit
-                        </label>
-                        <select
-                          value={item.unit}
-                          onChange={(e) =>
-                            updateItem(item.id, { unit: e.target.value })
-                          }
-                          className="w-full h-9 rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-xs text-zinc-900 focus:outline-none focus:ring-2 focus:ring-blue-500/50 shadow-sm"
-                        >
-                          {![
-                            "PCS",
-                            "BAG",
-                            "METER",
-                            "KG",
-                            "LITRE",
-                            "SQ_FT",
-                            "ROLL",
-                            "BOX",
-                          ].includes(item.unit) &&
-                            item.unit && (
-                              <option value={item.unit}>{item.unit}</option>
+                        {/* Unit select dropdown */}
+                        <div className="col-span-6 sm:col-span-1.5">
+                          <label className="text-[10px] font-semibold text-zinc-500 block mb-1">
+                            Unit
+                          </label>
+                          <select
+                            value={item.unit}
+                            onChange={(e) => handleUnitChange(item.id, e.target.value)}
+                            disabled={!item.productId}
+                            className="w-full h-9 rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-xs text-zinc-900 focus:outline-none focus:ring-2 focus:ring-blue-500/50 shadow-sm disabled:bg-zinc-50 disabled:text-zinc-400"
+                          >
+                            {!item.productId ? (
+                              <option value="">—</option>
+                            ) : (
+                              (() => {
+                                const allowedUnits = new Set<string>();
+                                if (product) {
+                                  allowedUnits.add(product.unit);
+                                  if (product.purchaseUnit) allowedUnits.add(product.purchaseUnit);
+                                  if (product.altSalesUnit) allowedUnits.add(product.altSalesUnit);
+                                }
+                                return Array.from(allowedUnits).map((u) => (
+                                  <option key={u} value={u}>
+                                    {u}
+                                  </option>
+                                ));
+                              })()
                             )}
-                          <option value="PCS">PCS</option>
-                          <option value="BAG">BAG</option>
-                          <option value="METER">METER</option>
-                          <option value="KG">KG</option>
-                          <option value="LITRE">LITRE</option>
-                          <option value="SQ_FT">SQ FT</option>
-                          <option value="ROLL">ROLL</option>
-                          <option value="BOX">BOX</option>
-                        </select>
-                      </div>
+                          </select>
+                        </div>
 
-                      {/* Line Specifications */}
-                      <div className="col-span-10 sm:col-span-4">
-                        <label className="text-[10px] font-semibold text-zinc-500 block mb-1">
-                          Line Specifications / Notes
-                        </label>
-                        <Input
-                          placeholder="e.g. thickness, color spec..."
-                          value={item.notes}
-                          onChange={(e) =>
-                            updateItem(item.id, { notes: e.target.value })
-                          }
-                          className="h-9 bg-white border-zinc-300 text-zinc-900 text-xs shadow-sm focus:border-blue-500"
-                        />
-                      </div>
+                        {/* Conversion Factor */}
+                        <div className="col-span-6 sm:col-span-1.5">
+                          <div className="flex justify-between items-center mb-1">
+                            <label className="text-[10px] font-semibold text-zinc-500 block">
+                              Conversion Factor
+                            </label>
+                          </div>
+                          <Input
+                            type="number"
+                            step="any"
+                            placeholder="1"
+                            value={item.conversionFactor}
+                            onChange={(e) =>
+                              updateItem(item.id, {
+                                conversionFactor: Math.max(0.0001, parseFloat(e.target.value) || 1),
+                              })
+                            }
+                            className="h-9 bg-white border-zinc-300 text-zinc-900 text-xs shadow-sm focus:border-blue-500 font-mono"
+                          />
+                        </div>
 
-                      {/* Action */}
-                      <div className="col-span-2 sm:col-span-0.5 flex justify-end">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="h-9 w-9 text-rose-600 hover:text-rose-700 hover:bg-rose-50"
-                          onClick={() => removeItem(item.id)}
-                        >
-                          <Trash2 size={16} />
-                        </Button>
+                        {/* Unit Price */}
+                        <div className="col-span-6 sm:col-span-1.5">
+                          <label className="text-[10px] font-semibold text-zinc-500 block mb-1">
+                            Unit Price (NPR)
+                          </label>
+                          <Input
+                            type="number"
+                            step="any"
+                            placeholder="0.00"
+                            value={item.unitPrice}
+                            onChange={(e) =>
+                              updateItem(item.id, {
+                                unitPrice: Math.max(0, parseFloat(e.target.value) || 0),
+                              })
+                            }
+                            className="h-9 bg-white border-zinc-300 text-zinc-900 text-xs shadow-sm focus:border-blue-500 font-mono"
+                          />
+                        </div>
+
+                        {/* Line Specifications */}
+                        <div className="col-span-10 sm:col-span-2">
+                          <label className="text-[10px] font-semibold text-zinc-500 block mb-1">
+                            Line Specifications / Notes
+                          </label>
+                          <Input
+                            placeholder="e.g. specs, color..."
+                            value={item.notes}
+                            onChange={(e) =>
+                              updateItem(item.id, { notes: e.target.value })
+                            }
+                            className="h-9 bg-white border-zinc-300 text-zinc-900 text-xs shadow-sm focus:border-blue-500"
+                          />
+                        </div>
+
+                        {/* Action */}
+                        <div className="col-span-2 sm:col-span-0.5 flex flex-col justify-end items-center">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-9 w-9 text-rose-600 hover:text-rose-700 hover:bg-rose-50"
+                            onClick={() => removeItem(item.id)}
+                          >
+                            <Trash2 size={16} />
+                          </Button>
+                        </div>
+
+                        {/* Equivalency helper line */}
+                        {item.conversionFactor !== 1 && (
+                          <div className="col-span-12 text-[10px] text-zinc-500 mt-1 font-mono">
+                            Equivalent Base Qty: <span className="font-bold text-amber-600">{equivalentBaseQty} {baseUnit}</span>
+                          </div>
+                        )}
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
+
+            {/* Totals Summary */}
+            {supplierId && items.length > 0 && (
+              <div className="flex justify-end p-5 rounded-xl border border-zinc-200 bg-zinc-50/50 shadow-sm">
+                <div className="w-72 space-y-3 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-zinc-500 font-medium">Subtotal:</span>
+                    <span className="font-mono font-semibold">NPR {subtotal.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between items-center gap-2">
+                    <span className="text-zinc-500 font-medium">Discount (NPR):</span>
+                    <Input
+                      type="number"
+                      value={discount}
+                      onChange={(e) => setDiscount(Math.max(0, parseFloat(e.target.value) || 0))}
+                      className="h-8 w-32 text-right font-mono"
+                    />
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-zinc-500 font-medium">Apply 13% VAT:</span>
+                    <input
+                      type="checkbox"
+                      checked={applyVat}
+                      onChange={(e) => setApplyVat(e.target.checked)}
+                      className="rounded text-blue-600 focus:ring-blue-500 h-4 w-4"
+                    />
+                  </div>
+                  {applyVat && (
+                    <div className="flex justify-between">
+                      <span className="text-zinc-500 font-medium">VAT (13%):</span>
+                      <span className="font-mono font-semibold">NPR {tax.toFixed(2)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between border-t border-zinc-200 pt-2 text-base font-bold text-zinc-900">
+                    <span>Total Amount:</span>
+                    <span className="font-mono text-blue-600">NPR {total.toFixed(2)}</span>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           <DialogFooter className="border-t border-zinc-200 pt-4 flex gap-2 justify-end">

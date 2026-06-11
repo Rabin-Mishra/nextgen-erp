@@ -37,7 +37,7 @@ export function RevenueByChannelChart({ data }: RevenueByChannelChartProps) {
 
   return (
     <div className="w-full h-80 pt-4">
-      <ResponsiveContainer width="100%" height="100%">
+      <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
         <BarChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e4e4e7" className="dark:stroke-zinc-800" />
           <XAxis dataKey="month" tickLine={false} axisLine={false} tick={{ fill: "#a1a1aa", fontSize: 10, fontWeight: 500 }} />
@@ -85,7 +85,7 @@ export function MonthlyProfitTrendChart({ data }: MonthlyProfitTrendChartProps) 
 
   return (
     <div className="w-full h-80 pt-4">
-      <ResponsiveContainer width="100%" height="100%">
+      <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
         <LineChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e4e4e7" className="dark:stroke-zinc-800" />
           <XAxis dataKey="month" tickLine={false} axisLine={false} tick={{ fill: "#a1a1aa", fontSize: 10 }} />
@@ -122,7 +122,7 @@ export function TopSellingItemsChart({ data }: TopSellingItemsChartProps) {
 
   return (
     <div className="w-full h-80 pt-4">
-      <ResponsiveContainer width="100%" height="100%">
+      <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
         <BarChart data={chartData} layout="vertical" margin={{ top: 10, right: 10, left: 20, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e4e4e7" className="dark:stroke-zinc-800" />
           <XAxis type="number" tickLine={false} axisLine={false} tickFormatter={(v) => `${(v / 100000).toFixed(1)}L`} tick={{ fill: "#a1a1aa", fontSize: 10 }} />
@@ -154,7 +154,7 @@ export function CashFlowMiniChart({ data }: CashFlowMiniChartProps) {
 
   return (
     <div className="w-full h-24">
-      <ResponsiveContainer width="100%" height="100%">
+      <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
         <AreaChart data={chartData} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
           <Tooltip
             formatter={(value: any) => [formatNPR(value), "Cash Balance"]}

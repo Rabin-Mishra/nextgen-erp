@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { Unit } from "../../generated/prisma/enums";
 
 const dateInput = z.union([z.string(), z.date()]);
 const moneyInput = z.union([z.string(), z.number()]);
@@ -29,9 +30,11 @@ export type UpdateProjectInput = z.infer<typeof updateProjectSchema>;
 
 export const issueSupplyItemSchema = z.object({
   productId: z.string().min(1, "Product is required"),
-  qty: z.number().int().positive("Quantity must be positive"),
+  qty: z.number().positive("Quantity must be positive"),
   unitPrice: moneyInput.optional(), // custom price override if desired
   notes: z.string().optional().nullable(),
+  salesUnit: z.nativeEnum(Unit).optional().nullable(),
+  conversionFactor: moneyInput.optional().nullable(),
 });
 
 export type IssueSupplyItemInput = z.infer<typeof issueSupplyItemSchema>;

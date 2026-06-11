@@ -44,14 +44,20 @@ const styles = StyleSheet.create({
   muted: {
     color: "#71717a",
   },
-  tableHeader: {
-    flexDirection: "row",
+  tableHeaderContainer: {
     backgroundColor: "#f4f4f5",
     borderBottomWidth: 1,
     borderBottomColor: "#d4d4d8",
-    paddingVertical: 6,
+    paddingVertical: 5,
     paddingHorizontal: 4,
+  },
+  tableHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  tableHeaderLabel: {
     fontWeight: "bold",
+    fontSize: 9,
   },
   tableRow: {
     flexDirection: "row",
@@ -63,43 +69,49 @@ const styles = StyleSheet.create({
   
   // Column widths for Before Receiving (!isReceived)
   itemColBefore: {
-    width: "55%",
+    width: "40%",
+  },
+  altUnitColBefore: {
+    width: "20%",
   },
   qtyColBefore: {
-    width: "15%",
+    width: "13%",
     textAlign: "right",
   },
   priceColBefore: {
-    width: "15%",
+    width: "13%",
     textAlign: "right",
   },
   totalColBefore: {
-    width: "15%",
+    width: "14%",
     textAlign: "right",
   },
 
   // Column widths for After Receiving (isReceived)
   itemColAfter: {
-    width: "32%",
+    width: "25%",
+  },
+  altUnitColAfter: {
+    width: "12%",
   },
   qtyColAfter: {
-    width: "10%",
+    width: "9%",
     textAlign: "right",
   },
   receivedColAfter: {
-    width: "10%",
+    width: "9%",
     textAlign: "right",
   },
   priceColAfter: {
-    width: "12%",
+    width: "11%",
     textAlign: "right",
   },
   totalColAfter: {
-    width: "12%",
+    width: "11%",
     textAlign: "right",
   },
   statusColAfter: {
-    width: "12%",
+    width: "11%",
     textAlign: "center",
   },
   notesColAfter: {
@@ -273,14 +285,27 @@ export function POPDF({ po, businessName, pan, phone, address }: POPDFProps) {
         {isReceived ? (
           // After Receiving
           <View>
-            <View style={styles.tableHeader}>
-              <Text style={[styles.itemColAfter, { fontWeight: "bold" }]}>Product Item</Text>
-              <Text style={[styles.qtyColAfter, { fontWeight: "bold" }]}>Ordered Qty</Text>
-              <Text style={[styles.receivedColAfter, { fontWeight: "bold" }]}>Received Qty</Text>
-              <Text style={[styles.priceColAfter, { fontWeight: "bold" }]}>Unit Price (NPR)</Text>
-              <Text style={[styles.totalColAfter, { fontWeight: "bold" }]}>Line Total (NPR)</Text>
-              <Text style={[styles.statusColAfter, { fontWeight: "bold" }]}>Status</Text>
-              <Text style={[styles.notesColAfter, { fontWeight: "bold", paddingLeft: 4 }]}>Notes</Text>
+            <View style={styles.tableHeaderContainer}>
+              <View style={styles.tableHeaderRow}>
+                <Text style={[styles.itemColAfter, styles.tableHeaderLabel]}>Product Item</Text>
+                <Text style={[styles.altUnitColAfter, styles.tableHeaderLabel]}>Alternate Unit</Text>
+                <Text style={[styles.qtyColAfter, styles.tableHeaderLabel]}>Ordered</Text>
+                <Text style={[styles.receivedColAfter, styles.tableHeaderLabel]}>Received</Text>
+                <Text style={[styles.priceColAfter, styles.tableHeaderLabel]}>Unit Price</Text>
+                <Text style={[styles.totalColAfter, styles.tableHeaderLabel]}>Line Total</Text>
+                <Text style={[styles.statusColAfter, styles.tableHeaderLabel]}>Status</Text>
+                <Text style={[styles.notesColAfter, styles.tableHeaderLabel, { paddingLeft: 4 }]}>Notes</Text>
+              </View>
+              <View style={[styles.tableHeaderRow, { marginTop: 2 }]}>
+                <Text style={[styles.itemColAfter, styles.tableHeaderLabel, { color: "#71717a" }]}></Text>
+                <Text style={[styles.altUnitColAfter, styles.tableHeaderLabel, { color: "#71717a", fontSize: 7 }]}>(UoM)</Text>
+                <Text style={[styles.qtyColAfter, styles.tableHeaderLabel, { color: "#71717a" }]}>Qty</Text>
+                <Text style={[styles.receivedColAfter, styles.tableHeaderLabel, { color: "#71717a" }]}>Qty</Text>
+                <Text style={[styles.priceColAfter, styles.tableHeaderLabel, { color: "#71717a" }]}>(NPR)</Text>
+                <Text style={[styles.totalColAfter, styles.tableHeaderLabel, { color: "#71717a" }]}>(NPR)</Text>
+                <Text style={[styles.statusColAfter, styles.tableHeaderLabel, { color: "#71717a" }]}></Text>
+                <Text style={[styles.notesColAfter, styles.tableHeaderLabel, { color: "#71717a", paddingLeft: 4 }]}></Text>
+              </View>
             </View>
             {po.items.map((item) => {
               const isComplete = item.receivedQty >= item.orderedQty;
@@ -290,6 +315,11 @@ export function POPDF({ po, businessName, pan, phone, address }: POPDFProps) {
                     <Text style={{ fontWeight: "bold" }}>{item.productName}</Text>
                     <Text style={[styles.muted, { fontSize: 8, marginTop: 1 }]}>{item.productCode}</Text>
                   </View>
+                  <Text style={styles.altUnitColAfter}>
+                    {item.productPurchaseUnit && item.productPurchaseUnit !== item.productBaseUnit
+                      ? `1 ${item.productPurchaseUnit} = ${Number(item.productPurchaseConversionFactor)} ${item.productBaseUnit}`
+                      : "—"}
+                  </Text>
                   <Text style={styles.qtyColAfter}>
                     {item.orderedQty} {item.productUnit}
                   </Text>
@@ -313,11 +343,21 @@ export function POPDF({ po, businessName, pan, phone, address }: POPDFProps) {
         ) : (
           // Before Receiving
           <View>
-            <View style={styles.tableHeader}>
-              <Text style={[styles.itemColBefore, { fontWeight: "bold" }]}>Product Item</Text>
-              <Text style={[styles.qtyColBefore, { fontWeight: "bold" }]}>Ordered Qty</Text>
-              <Text style={[styles.priceColBefore, { fontWeight: "bold" }]}>Unit Price (NPR)</Text>
-              <Text style={[styles.totalColBefore, { fontWeight: "bold" }]}>Line Total (NPR)</Text>
+            <View style={styles.tableHeaderContainer}>
+              <View style={styles.tableHeaderRow}>
+                <Text style={[styles.itemColBefore, styles.tableHeaderLabel]}>Product Item</Text>
+                <Text style={[styles.altUnitColBefore, styles.tableHeaderLabel]}>Alternate Unit</Text>
+                <Text style={[styles.qtyColBefore, styles.tableHeaderLabel]}>Ordered</Text>
+                <Text style={[styles.priceColBefore, styles.tableHeaderLabel]}>Unit Price</Text>
+                <Text style={[styles.totalColBefore, styles.tableHeaderLabel]}>Line Total</Text>
+              </View>
+              <View style={[styles.tableHeaderRow, { marginTop: 2 }]}>
+                <Text style={[styles.itemColBefore, styles.tableHeaderLabel, { color: "#71717a" }]}></Text>
+                <Text style={[styles.altUnitColBefore, styles.tableHeaderLabel, { color: "#71717a", fontSize: 7 }]}>(UoM)</Text>
+                <Text style={[styles.qtyColBefore, styles.tableHeaderLabel, { color: "#71717a" }]}>Qty</Text>
+                <Text style={[styles.priceColBefore, styles.tableHeaderLabel, { color: "#71717a" }]}>(NPR)</Text>
+                <Text style={[styles.totalColBefore, styles.tableHeaderLabel, { color: "#71717a" }]}>(NPR)</Text>
+              </View>
             </View>
             {po.items.map((item) => (
               <View key={item.id} style={styles.tableRow}>
@@ -325,6 +365,11 @@ export function POPDF({ po, businessName, pan, phone, address }: POPDFProps) {
                   <Text style={{ fontWeight: "bold" }}>{item.productName}</Text>
                   <Text style={[styles.muted, { fontSize: 8, marginTop: 1 }]}>{item.productCode}</Text>
                 </View>
+                <Text style={styles.altUnitColBefore}>
+                  {item.productPurchaseUnit && item.productPurchaseUnit !== item.productBaseUnit
+                    ? `1 ${item.productPurchaseUnit} = ${Number(item.productPurchaseConversionFactor)} ${item.productBaseUnit}`
+                    : "—"}
+                </Text>
                 <Text style={styles.qtyColBefore}>
                   {item.orderedQty} {item.productUnit}
                 </Text>

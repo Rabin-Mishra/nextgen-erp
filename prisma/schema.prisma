@@ -36,6 +36,15 @@ enum Unit {
   SQ_FT
   ROLL
   BOX
+  CARTON
+  TIN
+  DRUM
+  SHEET
+  BUNDLE
+  SET
+  PAIR
+  FEET
+  TON
 }
 
 enum CustomerType {
@@ -211,14 +220,18 @@ model Product {
   name          String
   categoryId    String   @map("category_id")
   brandId       String   @map("brand_id")
-  unit          Unit
-  description   String?
-  minStockLevel Int      @default(0) @map("min_stock_level") /// Alert when stock drops below this
-  reorderLevel  Int      @default(0) @map("reorder_level") /// Trigger reorder at this level
-  isActive      Boolean  @default(true) @map("is_active")
-  images        String[] @default([]) /// Array of image URLs / paths
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
+  unit                      Unit
+  purchaseUnit              Unit?    @map("purchase_unit")
+  purchaseConversionFactor  Decimal? @default(1) @db.Decimal(10, 4) @map("purchase_conversion_factor")
+  altSalesUnit              Unit?    @map("alt_sales_unit")
+  altSalesConversionFactor  Decimal? @default(1) @db.Decimal(10, 4) @map("alt_sales_conversion_factor")
+  description               String?
+  minStockLevel             Int      @default(0) @map("min_stock_level") /// Alert when stock drops below this
+  reorderLevel              Int      @default(0) @map("reorder_level") /// Trigger reorder at this level
+  isActive                  Boolean  @default(true) @map("is_active")
+  images                    String[] @default([]) /// Array of image URLs / paths
+  createdAt                 DateTime @default(now()) @map("created_at")
+  updatedAt                 DateTime @updatedAt @map("updated_at")
 
   // Relations
   category          Category           @relation(fields: [categoryId], references: [id])
@@ -358,8 +371,8 @@ model InventoryStock {
   id          String   @id @default(cuid())
   productId   String   @map("product_id")
   warehouseId String   @map("warehouse_id")
-  quantity    Int      @default(0) /// Current available quantity
-  reservedQty Int      @default(0) @map("reserved_qty") /// Allocated but not yet dispatched
+  quantity    Decimal  @default(0) @db.Decimal(12, 4) /// Current available quantity
+  reservedQty Decimal  @default(0) @db.Decimal(12, 4) @map("reserved_qty") /// Allocated but not yet dispatched
   lastUpdated DateTime @default(now()) @updatedAt @map("last_updated")
 
   // Relations
@@ -379,17 +392,20 @@ model InventoryStock {
 /// IMMUTABLE — never updated after creation. Every inventory movement is a new row.
 /// `referenceType` + `referenceId` links back to the source document (PO, Invoice, etc.)
 model StockTransaction {
-  id            String               @id @default(cuid())
-  type          StockTransactionType
-  productId     String               @map("product_id")
-  warehouseId   String               @map("warehouse_id")
-  quantity      Int /// Positive = in, Negative = out
-  unitCost      Decimal              @map("unit_cost") @db.Decimal(12, 2) /// Cost per unit at time of transaction
-  referenceType String?              @map("reference_type") /// e.g. "PURCHASE_ORDER", "SALES_INVOICE"
-  referenceId   String?              @map("reference_id") /// ID of the source document
-  notes         String?
-  userId        String               @map("user_id") /// Who performed this transaction
-  createdAt     DateTime             @default(now()) @map("created_at")
+  id              String               @id @default(cuid())
+  type            StockTransactionType
+  productId       String               @map("product_id")
+  warehouseId     String               @map("warehouse_id")
+  quantity        Decimal              @db.Decimal(12, 4) /// Positive = in, Negative = out
+  unitCost        Decimal              @map("unit_cost") @db.Decimal(12, 2) /// Cost per unit at time of transaction
+  referenceType   String?              @map("reference_type") /// e.g. "PURCHASE_ORDER", "SALES_INVOICE"
+  referenceId     String?              @map("reference_id") /// ID of the source document
+  notes           String?
+  userId          String               @map("user_id") /// Who performed this transaction
+  transactionUnit Unit?                @map("transaction_unit")
+  conversionFactor Decimal?            @default(1) @db.Decimal(10, 4) @map("conversion_factor")
+  originalQty     Decimal?             @db.Decimal(12, 4) @map("original_qty")
+  createdAt       DateTime             @default(now()) @map("created_at")
 
   // Relations
   product   Product   @relation(fields: [productId], references: [id])
@@ -448,11 +464,14 @@ model PurchaseOrderItem {
   id              String  @id @default(cuid())
   purchaseOrderId String  @map("purchase_order_id")
   productId       String  @map("product_id")
-  orderedQty      Int     @map("ordered_qty")
-  receivedQty     Int     @default(0) @map("received_qty") /// Tracks partial receiving
+  orderedQty      Decimal @db.Decimal(12, 4) @map("ordered_qty")
+  receivedQty     Decimal @default(0) @db.Decimal(12, 4) @map("received_qty") /// Tracks partial receiving
   unitPrice       Decimal @map("unit_price") @db.Decimal(12, 2)
   totalPrice      Decimal @map("total_price") @db.Decimal(14, 2) /// orderedQty × unitPrice
   notes           String?
+  orderedUnit     Unit?   @map("ordered_unit")
+  conversionFactor Decimal? @default(1) @db.Decimal(10, 4) @map("conversion_factor")
+  baseQtyEquivalent Decimal? @db.Decimal(12, 4) @map("base_qty_equivalent")
 
   // Relations
   purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
@@ -517,12 +536,15 @@ model SalesInvoiceItem {
   id              String  @id @default(cuid())
   invoiceId       String  @map("invoice_id")
   productId       String  @map("product_id")
-  qty             Int
+  qty             Decimal @db.Decimal(12, 4)
   unitPrice       Decimal @map("unit_price") @db.Decimal(12, 2)
   discountPercent Decimal @default(0) @map("discount_percent") @db.Decimal(5, 2) /// Line-level discount
   totalPrice      Decimal @map("total_price") @db.Decimal(14, 2) /// (qty × unitPrice) - discount
   warehouseId     String  @map("warehouse_id") /// Which warehouse to deduct stock from
   notes           String?
+  salesUnit       Unit?   @map("sales_unit")
+  conversionFactor Decimal? @default(1) @db.Decimal(10, 4) @map("conversion_factor")
+  baseQtyEquivalent Decimal? @db.Decimal(12, 4) @map("base_qty_equivalent")
 
   // Relations
   invoice   SalesInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
@@ -863,7 +885,7 @@ model PurchaseReturnItem {
   id               String         @id @default(cuid())
   purchaseReturnId String         @map("purchase_return_id")
   productId        String         @map("product_id")
-  qty              Int
+  qty              Decimal        @db.Decimal(12, 4)
   unitPrice        Decimal        @map("unit_price") @db.Decimal(12, 2)
   totalPrice       Decimal        @map("total_price") @db.Decimal(14, 2) // qty * unitPrice
   notes            String?
@@ -914,7 +936,7 @@ model SalesReturnItem {
   id            String      @id @default(cuid())
   salesReturnId String      @map("sales_return_id")
   productId     String      @map("product_id")
-  qty           Int
+  qty           Decimal     @db.Decimal(12, 4)
   unitPrice     Decimal     @map("unit_price") @db.Decimal(12, 2)
   totalPrice    Decimal     @map("total_price") @db.Decimal(14, 2) // qty * unitPrice
   warehouseId   String      @map("warehouse_id")

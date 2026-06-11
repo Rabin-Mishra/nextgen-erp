@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { addCashBookEntryAction, getAccountingLookups } from "@/modules/accounting/actions";
-import { CashEntryType, PartyType, PaymentMode } from "@/generated/prisma/client";
+import { CashEntryType, PartyType, PaymentMode } from "@/generated/prisma/enums";
 import { toast } from "sonner";
 import { DualDatePicker } from "@/components/shared/DualDatePicker";
 

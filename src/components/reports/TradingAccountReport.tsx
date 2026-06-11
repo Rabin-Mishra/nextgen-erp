@@ -18,7 +18,7 @@ interface TradingAccountReportProps {
 }
 
 export function TradingAccountReport({ data }: TradingAccountReportProps) {
-  const debitTotal = Number(data.cogs) + Number(data.grossProfit);
+  const debitTotal = Number(data.openingStock) + Number(data.purchases) + Number(data.grossProfit);
   const creditTotal = Number(data.sales) + Number(data.closingStock);
 
   return (
@@ -61,14 +61,6 @@ export function TradingAccountReport({ data }: TradingAccountReportProps) {
             </div>
 
             {/* Row 3 */}
-            <div className="grid grid-cols-4 px-6 py-4 items-center bg-zinc-50/10 dark:bg-zinc-900/5">
-              <span className="text-zinc-400 italic">Cost of Goods Sold (COGS)</span>
-              <span className="text-right text-rose-600 dark:text-rose-400 font-bold"><NPRAmount amount={Number(data.cogs)} showCurrency={false} /></span>
-              <span className="pl-6">-</span>
-              <span className="text-right">-</span>
-            </div>
-
-            {/* Row 4 */}
             <div className="grid grid-cols-4 px-6 py-4 items-center bg-emerald-50/10 dark:bg-emerald-950/5">
               <span className="text-emerald-700 dark:text-emerald-400 font-bold">Gross Profit transferred to P&L</span>
               <span className="text-right text-emerald-600 dark:text-emerald-400 font-bold"><NPRAmount amount={Number(data.grossProfit)} showCurrency={false} /></span>

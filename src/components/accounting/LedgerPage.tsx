@@ -12,7 +12,7 @@ import { ColumnDef } from "@tanstack/react-table";
 import { BookOpen, ArrowUpRight, ArrowDownLeft, Scale, Users, Briefcase, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { PartyType } from "@/generated/prisma/client";
+import { PartyType } from "@/generated/prisma/enums";
 
 interface PartyBalanceRow {
   id: string;

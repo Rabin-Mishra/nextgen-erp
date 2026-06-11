@@ -58,7 +58,7 @@ export async function getProjects(opts: GetProjectsOptions = {}) {
         : [];
 
       const materialCost = stockTxns.reduce(
-        (sum, tx) => sum.plus(new Decimal(tx.unitCost).times(Math.abs(tx.quantity))),
+        (sum, tx) => sum.plus(new Decimal(tx.unitCost).times(tx.quantity.abs())),
         new Decimal(0)
       );
 
@@ -67,9 +67,9 @@ export async function getProjects(opts: GetProjectsOptions = {}) {
         new Decimal(0)
       );
 
-      const grossProfit = totalBilled.minus(materialCost);
-      const marginPercent = totalBilled.greaterThan(0)
-        ? grossProfit.div(totalBilled).times(100)
+      const grossProfit = p.contractAmount.minus(totalBilled);
+      const marginPercent = p.contractAmount.greaterThan(0)
+        ? grossProfit.div(p.contractAmount).times(100)
         : new Decimal(0);
 
       return {
@@ -140,7 +140,7 @@ export async function getProjectById(id: string) {
     : [];
 
   const materialCost = stockTxns.reduce(
-    (sum, tx) => sum.plus(new Decimal(tx.unitCost).times(Math.abs(tx.quantity))),
+    (sum, tx) => sum.plus(new Decimal(tx.unitCost).times(tx.quantity.abs())),
     new Decimal(0)
   );
 
@@ -149,9 +149,9 @@ export async function getProjectById(id: string) {
     new Decimal(0)
   );
 
-  const grossProfit = totalBilled.minus(materialCost);
-  const marginPercent = totalBilled.greaterThan(0)
-    ? grossProfit.div(totalBilled).times(100)
+  const grossProfit = p.contractAmount.minus(totalBilled);
+  const marginPercent = p.contractAmount.greaterThan(0)
+    ? grossProfit.div(p.contractAmount).times(100)
     : new Decimal(0);
 
   const mappedProject = {
@@ -195,9 +195,9 @@ export async function getProjectById(id: string) {
     productCode: tx.product.code,
     productName: tx.product.name,
     productUnit: tx.product.unit,
-    qtyUsed: Math.abs(tx.quantity),
+    qtyUsed: tx.quantity.abs().toNumber(),
     unitCost: tx.unitCost.toString(),
-    totalCost: tx.unitCost.times(Math.abs(tx.quantity)).toString(),
+    totalCost: tx.unitCost.times(tx.quantity.abs()).toString(),
     warehouseName: tx.warehouse.name,
     dateUsed: tx.createdAt.toISOString(),
   }));
@@ -226,6 +226,7 @@ export async function getProjectStats() {
 
   let totalRevenue = new Decimal(0);
   let totalCost = new Decimal(0);
+  let totalContractValue = new Decimal(0);
 
   for (const p of projects) {
     const invoiceIds = p.salesInvoices.map((inv) => inv.id);
@@ -240,7 +241,7 @@ export async function getProjectStats() {
       : [];
 
     const materialCost = stockTxns.reduce(
-      (sum, tx) => sum.plus(new Decimal(tx.unitCost).times(Math.abs(tx.quantity))),
+      (sum, tx) => sum.plus(new Decimal(tx.unitCost).times(tx.quantity.abs())),
       new Decimal(0)
     );
 
@@ -251,11 +252,12 @@ export async function getProjectStats() {
 
     totalRevenue = totalRevenue.plus(billed);
     totalCost = totalCost.plus(materialCost);
+    totalContractValue = totalContractValue.plus(new Decimal(p.contractAmount));
   }
 
-  const totalProfit = totalRevenue.minus(totalCost);
-  const avgMarginPercent = totalRevenue.greaterThan(0)
-    ? totalProfit.div(totalRevenue).times(100)
+  const totalProfit = totalContractValue.minus(totalRevenue);
+  const avgMarginPercent = totalContractValue.greaterThan(0)
+    ? totalProfit.div(totalContractValue).times(100)
     : new Decimal(0);
 
   return serializeForClient(
@@ -300,7 +302,7 @@ export async function getProjectProfitability(projectId?: string) {
         : [];
 
       const totalCost = stockTxns.reduce(
-        (sum, tx) => sum.plus(new Decimal(tx.unitCost).times(Math.abs(tx.quantity))),
+        (sum, tx) => sum.plus(new Decimal(tx.unitCost).times(tx.quantity.abs())),
         new Decimal(0)
       );
 
@@ -309,9 +311,9 @@ export async function getProjectProfitability(projectId?: string) {
         new Decimal(0)
       );
 
-      const grossProfit = totalBilled.minus(totalCost);
-      const marginPercent = totalBilled.greaterThan(0)
-        ? grossProfit.div(totalBilled).times(100)
+      const grossProfit = p.contractAmount.minus(totalBilled);
+      const marginPercent = p.contractAmount.greaterThan(0)
+        ? grossProfit.div(p.contractAmount).times(100)
         : new Decimal(0);
 
       return {
@@ -362,9 +364,9 @@ export async function getMaterialUsage(projectId: string) {
     productCode: tx.product.code,
     productName: tx.product.name,
     productUnit: tx.product.unit,
-    qtyUsed: Math.abs(tx.quantity),
+    qtyUsed: tx.quantity.abs().toNumber(),
     unitCost: tx.unitCost.toString(),
-    totalCost: tx.unitCost.times(Math.abs(tx.quantity)).toString(),
+    totalCost: tx.unitCost.times(tx.quantity.abs()).toString(),
     warehouseName: tx.warehouse.name,
     dateUsed: tx.createdAt.toISOString(),
   }));
@@ -431,11 +433,15 @@ export async function getProjectLookups() {
         code: p.code,
         name: p.name,
         unit: p.unit,
+        purchaseUnit: p.purchaseUnit,
+        purchaseConversionFactor: p.purchaseConversionFactor ? p.purchaseConversionFactor.toNumber() : 1,
+        altSalesUnit: p.altSalesUnit,
+        altSalesConversionFactor: p.altSalesConversionFactor ? p.altSalesConversionFactor.toNumber() : 1,
         projectPrice: variant?.projectPrice.toString() ?? "0",
         stockByWarehouse: p.stockEntries.map((stock) => ({
           warehouseId: stock.warehouseId,
           warehouseName: stock.warehouse.name,
-          availableQty: Math.max(0, stock.quantity - stock.reservedQty),
+          availableQty: Math.max(0, stock.quantity.minus(stock.reservedQty).toNumber()),
         })),
       };
     }),

@@ -117,7 +117,7 @@ export function ProjectsTable({ projects, onIssueSupply, onEdit }: ProjectsTable
     },
     {
       accessorKey: "grossProfit",
-      header: "Margin Profit (NPR)",
+      header: "Net Profit (NPR)",
       cell: ({ row }) => {
         const profit = Number(row.original.grossProfit);
         return (
@@ -129,7 +129,7 @@ export function ProjectsTable({ projects, onIssueSupply, onEdit }: ProjectsTable
     },
     {
       accessorKey: "marginPercent",
-      header: "Margin %",
+      header: "Net Margin %",
       cell: ({ row }) => {
         const margin = Number(row.original.marginPercent);
         let colorClass = "text-red-600 dark:text-red-400 font-bold";

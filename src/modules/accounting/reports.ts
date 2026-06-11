@@ -3,6 +3,35 @@ import Decimal from "decimal.js";
 import { PartyType, EntryType, InvoiceType, StockTransactionType, PaymentMode } from "@/generated/prisma/client";
 import { cache } from "react";
 
+// Helper function to calculate stock valuation at cost price as of a target date
+async function getStockValuation(asOfDate: Date) {
+  const db = await getDb();
+  const trans = await db.stockTransaction.findMany({
+    where: { createdAt: { lte: asOfDate } },
+    select: { productId: true, quantity: true, unitCost: true }
+  });
+
+  const qtyMap = new Map<string, Decimal>();
+  for (const t of trans) {
+    const current = qtyMap.get(t.productId) || new Decimal(0);
+    qtyMap.set(t.productId, current.plus(t.quantity));
+  }
+
+  let totalValuation = new Decimal(0);
+  for (const [productId, qty] of qtyMap.entries()) {
+    if (qty.greaterThan(0)) {
+      const variant = await db.productVariant.findFirst({
+        where: { productId, isActive: true },
+        orderBy: { effectiveDate: "desc" },
+        select: { purchasePrice: true }
+      });
+      const price = variant ? new Decimal(variant.purchasePrice) : new Decimal(0);
+      totalValuation = totalValuation.plus(qty.times(price));
+    }
+  }
+  return totalValuation;
+}
+
 // ============================================================================
 // 1. PROFIT & LOSS STATEMENT (Gregorian month/year)
 // ============================================================================
@@ -36,19 +65,24 @@ export const getProfitLossData = cache(async (month: number, year: number) => {
   const totalRevenue = retailRevenue.plus(wholesaleRevenue).plus(projectRevenue);
 
   // B. Cost of Goods Sold (COGS)
-  // Summing actual variant procurement costs at the time of sale
   const soldTransactions = await db.stockTransaction.findMany({
     where: {
       createdAt: { gte: startDate, lte: endDate },
       type: { in: ["SALE_OUT", "PROJECT_ISSUE"] }
     },
-    select: { quantity: true, unitCost: true }
+    select: { productId: true, quantity: true, unitCost: true }
   });
 
   let cogs = new Decimal(0);
   for (const st of soldTransactions) {
     const qty = new Decimal(st.quantity).abs();
-    const cost = new Decimal(st.unitCost);
+    // Use variant purchase price as cost price (fallback to st.unitCost if variant not found)
+    const variant = await db.productVariant.findFirst({
+      where: { productId: st.productId, isActive: true },
+      orderBy: { effectiveDate: "desc" },
+      select: { purchasePrice: true }
+    });
+    const cost = variant ? new Decimal(variant.purchasePrice) : new Decimal(st.unitCost);
     cogs = cogs.plus(qty.times(cost));
   }
 
@@ -122,41 +156,32 @@ export const getTradingAccountData = cache(async (month: number, year: number) =
     sales = sales.plus(new Decimal(s.subtotal).minus(s.discountAmount));
   }
 
-  // B. Opening stock valuation (Sum of all stock transactions before startDate)
-  const prevTrans = await db.stockTransaction.findMany({
-    where: { createdAt: { lt: startDate } },
-    select: { quantity: true, unitCost: true }
-  });
+  // B. Opening stock valuation (using getStockValuation helper as of startDate - 1ms)
+  const openingStock = await getStockValuation(new Date(startDate.getTime() - 1));
 
-  let openingStock = new Decimal(0);
-  for (const pt of prevTrans) {
-    openingStock = openingStock.plus(new Decimal(pt.quantity).times(pt.unitCost));
-  }
-
-  // C. Purchases during the period (PURCHASE_IN stock transactions)
+  // C. Purchases during the period (including net adjustments to match periodic accounting)
   const purchTrans = await db.stockTransaction.findMany({
     where: {
       createdAt: { gte: startDate, lte: endDate },
-      type: "PURCHASE_IN"
+      type: { in: ["PURCHASE_IN", "ADJUSTMENT_IN", "ADJUSTMENT_OUT", "RETURN_OUT", "RETURN_IN"] }
     },
-    select: { quantity: true, unitCost: true }
+    select: { productId: true, quantity: true, unitCost: true }
   });
 
   let purchases = new Decimal(0);
   for (const pt of purchTrans) {
-    purchases = purchases.plus(new Decimal(pt.quantity).times(pt.unitCost));
+    const qty = new Decimal(pt.quantity);
+    const variant = await db.productVariant.findFirst({
+      where: { productId: pt.productId, isActive: true },
+      orderBy: { effectiveDate: "desc" },
+      select: { purchasePrice: true }
+    });
+    const cost = variant ? new Decimal(variant.purchasePrice) : new Decimal(pt.unitCost);
+    purchases = purchases.plus(qty.times(cost));
   }
 
-  // D. Closing Stock Valuation (Sum of all stock transactions up to endDate)
-  const endTrans = await db.stockTransaction.findMany({
-    where: { createdAt: { lte: endDate } },
-    select: { quantity: true, unitCost: true }
-  });
-
-  let closingStock = new Decimal(0);
-  for (const et of endTrans) {
-    closingStock = closingStock.plus(new Decimal(et.quantity).times(et.unitCost));
-  }
+  // D. Closing Stock Valuation
+  const closingStock = await getStockValuation(endDate);
 
   // E. Cost of Goods Sold calculations
   const cogs = openingStock.plus(purchases).minus(closingStock);
@@ -223,16 +248,8 @@ export const getBalanceSheetData = cache(async (asOf: Date | string) => {
     }
   }
 
-  // C. Inventory valuation (Sum of all stock transactions as of targetDate)
-  const stockTrans = await db.stockTransaction.findMany({
-    where: { createdAt: { lte: targetDate } },
-    select: { quantity: true, unitCost: true }
-  });
-
-  let inventoryValue = new Decimal(0);
-  for (const st of stockTrans) {
-    inventoryValue = inventoryValue.plus(new Decimal(st.quantity).times(st.unitCost));
-  }
+  // C. Inventory valuation (using getStockValuation helper as of targetDate)
+  const inventoryValue = await getStockValuation(targetDate);
 
   // D. Fixed Assets Cost & Accumulated Depreciation
   const assets = await db.fixedAsset.findMany({
@@ -282,11 +299,67 @@ export const getBalanceSheetData = cache(async (asOf: Date | string) => {
   const totalLiabilities = accountsPayable; // loans placeholder could be added if needed
 
   // --- EQUITY (Owner Capital + Retained Earnings) ---
-  const startingCapital = new Decimal(2500000); // Standard Owner Capital threshold (NPR 25 Lakhs)
-  
-  // Retained earnings are calculated dynamically as: Assets - Liabilities - Capital
-  // This guarantees that Assets = Liabilities + Equity balances mathematically!
-  const retainedEarnings = totalAssets.minus(totalLiabilities).minus(startingCapital);
+  // Dynamically calculate Capital contributions from the cash book up to targetDate
+  const capitalEntries = await db.cashBookEntry.findMany({
+    where: {
+      entryDate: { lte: targetDate },
+      type: "RECEIVED",
+      OR: [
+        { description: { contains: "capital", mode: "insensitive" } },
+        { description: { contains: "equity", mode: "insensitive" } },
+        { description: { contains: "contribution", mode: "insensitive" } },
+        { referenceType: "FINANCING" }
+      ]
+    },
+    select: { amount: true }
+  });
+  let startingCapital = new Decimal(0);
+  for (const ce of capitalEntries) {
+    startingCapital = startingCapital.plus(ce.amount);
+  }
+
+  // Calculate Retained Earnings dynamically from cumulative net profits/losses up to targetDate
+  const allInvoices = await db.salesInvoice.findMany({
+    where: { invoiceDate: { lte: targetDate }, status: { not: "CANCELLED" } },
+    select: { subtotal: true, discountAmount: true }
+  });
+  let totalRevenue = new Decimal(0);
+  for (const inv of allInvoices) {
+    totalRevenue = totalRevenue.plus(new Decimal(inv.subtotal).minus(inv.discountAmount));
+  }
+
+  const allSoldTransactions = await db.stockTransaction.findMany({
+    where: { createdAt: { lte: targetDate }, type: { in: ["SALE_OUT", "PROJECT_ISSUE"] } },
+    select: { productId: true, quantity: true, unitCost: true }
+  });
+  let totalCogs = new Decimal(0);
+  for (const st of allSoldTransactions) {
+    const qty = new Decimal(st.quantity).abs();
+    const variant = await db.productVariant.findFirst({
+      where: { productId: st.productId, isActive: true },
+      orderBy: { effectiveDate: "desc" },
+      select: { purchasePrice: true }
+    });
+    const cost = variant ? new Decimal(variant.purchasePrice) : new Decimal(st.unitCost);
+    totalCogs = totalCogs.plus(qty.times(cost));
+  }
+
+  const allExpenses = await db.cashBookEntry.findMany({
+    where: { entryDate: { lte: targetDate }, type: "PAID", partyId: null },
+    select: { amount: true }
+  });
+  let totalExpenses = new Decimal(0);
+  for (const exp of allExpenses) {
+    totalExpenses = totalExpenses.plus(exp.amount);
+  }
+
+  const depEntriesVal = await db.depreciationEntry.aggregate({
+    where: { createdAt: { lte: targetDate } },
+    _sum: { amount: true }
+  });
+  const totalDepreciation = new Decimal(depEntriesVal._sum.amount || 0);
+
+  const retainedEarnings = totalRevenue.minus(totalCogs).minus(totalExpenses).minus(totalDepreciation);
   const totalEquity = startingCapital.plus(retainedEarnings);
 
   return {
@@ -321,84 +394,177 @@ export const getTrialBalanceData = cache(async (asOf: Date | string) => {
   const db = await getDb();
   const targetDate = new Date(asOf);
 
-  const customers = await db.customer.findMany({ select: { id: true, name: true, code: true, openingBalance: true } });
-  const suppliers = await db.supplier.findMany({ select: { id: true, name: true, code: true, openingBalance: true } });
-
-  const trialRows = [];
+  const trialRows: { code: string; name: string; type: string; debit: string; credit: string }[] = [];
   let totalDebit = new Decimal(0);
   let totalCredit = new Decimal(0);
 
-  // Process Customers
-  for (const c of customers) {
-    const entries = await db.ledgerEntry.findMany({
-      where: { partyType: "CUSTOMER", partyId: c.id, entryDate: { lte: targetDate } },
-      select: { amount: true, entryType: true }
-    });
-
-    let debits = new Decimal(c.openingBalance);
-    let credits = new Decimal(0);
-    for (const e of entries) {
-      if (e.entryType === "DEBIT") debits = debits.plus(e.amount);
-      else credits = credits.plus(e.amount);
-    }
-
-    const balance = debits.minus(credits);
+  // Helper to add row
+  const addRow = (code: string, name: string, type: string, balance: Decimal) => {
     if (balance.greaterThan(0)) {
       totalDebit = totalDebit.plus(balance);
       trialRows.push({
-        code: c.code,
-        name: c.name,
-        type: "CUSTOMER",
+        code,
+        name,
+        type,
         debit: balance.toString(),
         credit: "0",
       });
     } else if (balance.lessThan(0)) {
       totalCredit = totalCredit.plus(balance.abs());
       trialRows.push({
-        code: c.code,
-        name: c.name,
-        type: "CUSTOMER",
+        code,
+        name,
+        type,
         debit: "0",
         credit: balance.abs().toString(),
       });
     }
+  };
+
+  // 1. Cash-in-hand (Safe Vault)
+  const cashEntries = await db.cashBookEntry.findMany({
+    where: { entryDate: { lte: targetDate }, paymentMethod: "CASH" },
+    select: { amount: true, type: true }
+  });
+  let cashBalance = new Decimal(0);
+  for (const ce of cashEntries) {
+    cashBalance = cashBalance.plus(new Decimal(ce.amount).times(ce.type === "RECEIVED" ? 1 : -1));
+  }
+  addRow("GL-1001", "Cash-in-hand (Safe Vault)", "CASH", cashBalance);
+
+  // 2. Commercial Bank Accounts
+  const bankEntries = await db.cashBookEntry.findMany({
+    where: { entryDate: { lte: targetDate }, paymentMethod: { in: ["BANK", "CHEQUE"] } },
+    select: { amount: true, type: true }
+  });
+  let bankBalance = new Decimal(0);
+  for (const be of bankEntries) {
+    bankBalance = bankBalance.plus(new Decimal(be.amount).times(be.type === "RECEIVED" ? 1 : -1));
+  }
+  addRow("GL-1002", "Commercial Bank Accounts", "BANK", bankBalance);
+
+  // 3. Digital QR Wallets (eSewa/Khalti)
+  const digitalEntries = await db.cashBookEntry.findMany({
+    where: { entryDate: { lte: targetDate }, paymentMethod: { in: ["ESEWA", "KHALTI"] } },
+    select: { amount: true, type: true }
+  });
+  let digitalBalance = new Decimal(0);
+  for (const de of digitalEntries) {
+    digitalBalance = digitalBalance.plus(new Decimal(de.amount).times(de.type === "RECEIVED" ? 1 : -1));
+  }
+  addRow("GL-1003", "Digital QR Wallets (eSewa/Khalti)", "DIGITAL", digitalBalance);
+
+  // 4. Accounts Receivable (Customer Ledger Balances)
+  const customers = await db.customer.findMany({ select: { id: true, name: true, code: true, openingBalance: true } });
+  for (const c of customers) {
+    const entries = await db.ledgerEntry.findMany({
+      where: { partyType: "CUSTOMER", partyId: c.id, entryDate: { lte: targetDate } },
+      select: { amount: true, entryType: true }
+    });
+    let balance = new Decimal(c.openingBalance);
+    for (const e of entries) {
+      balance = balance.plus(new Decimal(e.amount).times(e.entryType === "DEBIT" ? 1 : -1));
+    }
+    addRow(c.code, `${c.name} (Customer Receivable)`, "CUSTOMER", balance);
   }
 
-  // Process Suppliers
+  // 5. Accounts Payable (Supplier Ledger Balances)
+  const suppliers = await db.supplier.findMany({ select: { id: true, name: true, code: true, openingBalance: true } });
   for (const s of suppliers) {
     const entries = await db.ledgerEntry.findMany({
       where: { partyType: "SUPPLIER", partyId: s.id, entryDate: { lte: targetDate } },
       select: { amount: true, entryType: true }
     });
-
-    let debits = new Decimal(0);
-    let credits = new Decimal(s.openingBalance);
+    // Supplier balance is credit-normal: CREDIT increases it, DEBIT decreases it.
+    let balance = new Decimal(s.openingBalance);
     for (const e of entries) {
-      if (e.entryType === "CREDIT") credits = credits.plus(e.amount);
-      else debits = debits.plus(e.amount);
+      balance = balance.plus(new Decimal(e.amount).times(e.entryType === "CREDIT" ? 1 : -1));
     }
-
-    const balance = credits.minus(debits);
-    if (balance.greaterThan(0)) {
-      totalCredit = totalCredit.plus(balance);
-      trialRows.push({
-        code: s.code,
-        name: s.name,
-        type: "SUPPLIER",
-        debit: "0",
-        credit: balance.toString(),
-      });
-    } else if (balance.lessThan(0)) {
-      totalDebit = totalDebit.plus(balance.abs());
-      trialRows.push({
-        code: s.code,
-        name: s.name,
-        type: "SUPPLIER",
-        debit: balance.abs().toString(),
-        credit: "0",
-      });
-    }
+    addRow(s.code, `${s.name} (Supplier Payable)`, "SUPPLIER", balance.negated()); // negate so credit balance is shown under Credit column
   }
+
+  // 6. Inventory Stock (GL Asset)
+  const inventoryVal = await getStockValuation(targetDate);
+  addRow("GL-1200", "Inventory Asset", "STOCK", inventoryVal);
+
+  // 7. Cost of Goods Sold (COGS Expense)
+  const soldTransactions = await db.stockTransaction.findMany({
+    where: { createdAt: { lte: targetDate }, type: { in: ["SALE_OUT", "PROJECT_ISSUE"] } },
+    select: { productId: true, quantity: true, unitCost: true }
+  });
+  let cogsVal = new Decimal(0);
+  for (const st of soldTransactions) {
+    const qty = new Decimal(st.quantity).abs();
+    const variant = await db.productVariant.findFirst({
+      where: { productId: st.productId, isActive: true },
+      orderBy: { effectiveDate: "desc" },
+      select: { purchasePrice: true }
+    });
+    const cost = variant ? new Decimal(variant.purchasePrice) : new Decimal(st.unitCost);
+    cogsVal = cogsVal.plus(qty.times(cost));
+  }
+  addRow("GL-5001", "Cost of Goods Sold (COGS)", "EXPENSE", cogsVal);
+
+  // 8. Sales Revenue (Income GL)
+  const invoices = await db.salesInvoice.findMany({
+    where: { invoiceDate: { lte: targetDate }, status: { not: "CANCELLED" } },
+    select: { subtotal: true, discountAmount: true }
+  });
+  let salesVal = new Decimal(0);
+  for (const inv of invoices) {
+    salesVal = salesVal.plus(new Decimal(inv.subtotal).minus(inv.discountAmount));
+  }
+  addRow("GL-4001", "Sales Revenue", "REVENUE", salesVal.negated()); // negate so credit balance is shown under Credit column
+
+  // 9. Operating Expenses (Expense GL)
+  const expEntries = await db.cashBookEntry.findMany({
+    where: { entryDate: { lte: targetDate }, type: "PAID", partyId: null },
+    select: { amount: true }
+  });
+  let expenseVal = new Decimal(0);
+  for (const exp of expEntries) {
+    expenseVal = expenseVal.plus(exp.amount);
+  }
+  addRow("GL-6001", "Operating Expenses", "EXPENSE", expenseVal);
+
+  // 10. Fixed Assets Cost
+  const assets = await db.fixedAsset.findMany({
+    where: { purchaseDate: { lte: targetDate } },
+    select: { purchasePrice: true }
+  });
+  let faCost = new Decimal(0);
+  for (const a of assets) {
+    faCost = faCost.plus(a.purchasePrice);
+  }
+  addRow("GL-1300", "Fixed Assets Cost", "ASSET", faCost);
+
+  // 11. Accumulated Depreciation (Contra Asset)
+  const depEntries = await db.depreciationEntry.aggregate({
+    where: { createdAt: { lte: targetDate } },
+    _sum: { amount: true }
+  });
+  const accumDep = new Decimal(depEntries._sum.amount || 0);
+  addRow("GL-1301", "Accumulated Depreciation", "ASSET", accumDep.negated());
+
+  // 12. Owner Starting Capital
+  const capitalEntries = await db.cashBookEntry.findMany({
+    where: {
+      entryDate: { lte: targetDate },
+      type: "RECEIVED",
+      OR: [
+        { description: { contains: "capital", mode: "insensitive" } },
+        { description: { contains: "equity", mode: "insensitive" } },
+        { description: { contains: "contribution", mode: "insensitive" } },
+        { referenceType: "FINANCING" }
+      ]
+    },
+    select: { amount: true }
+  });
+  let startingCapital = new Decimal(0);
+  for (const ce of capitalEntries) {
+    startingCapital = startingCapital.plus(ce.amount);
+  }
+  addRow("GL-3001", "Owner Starting Capital", "EQUITY", startingCapital.negated());
 
   return {
     rows: trialRows,
@@ -470,6 +636,7 @@ export const getItemWiseSales = cache(async (dateFrom: Date | string, dateTo: Da
     select: {
       qty: true,
       unitPrice: true,
+      baseQtyEquivalent: true,
       product: {
         select: {
           name: true,
@@ -483,19 +650,20 @@ export const getItemWiseSales = cache(async (dateFrom: Date | string, dateTo: Da
     }
   });
 
-  const itemMap = new Map<string, { name: string; code: string; qty: number; revenue: Decimal; cost: Decimal }>();
+  const itemMap = new Map<string, { name: string; code: string; qty: Decimal; revenue: Decimal; cost: Decimal }>();
 
   for (const ii of invoiceItems) {
     const key = ii.product.code;
-    const qty = ii.qty;
+    const qty = new Decimal(ii.qty);
+    const baseQty = ii.baseQtyEquivalent ? new Decimal(ii.baseQtyEquivalent) : qty;
     const rev = new Decimal(ii.unitPrice).times(qty);
     const purchasePrice = ii.product.variants[0]?.purchasePrice || new Decimal(0);
-    const cost = new Decimal(purchasePrice).times(qty);
+    const cost = new Decimal(purchasePrice).times(baseQty);
 
-    const existing = itemMap.get(key) || { name: ii.product.name, code: ii.product.code, qty: 0, revenue: new Decimal(0), cost: new Decimal(0) };
+    const existing = itemMap.get(key) || { name: ii.product.name, code: ii.product.code, qty: new Decimal(0), revenue: new Decimal(0), cost: new Decimal(0) };
     itemMap.set(key, {
       ...existing,
-      qty: existing.qty + qty,
+      qty: existing.qty.plus(baseQty),
       revenue: existing.revenue.plus(rev),
       cost: existing.cost.plus(cost)
     });
@@ -505,7 +673,7 @@ export const getItemWiseSales = cache(async (dateFrom: Date | string, dateTo: Da
     .map(val => ({
       name: val.name,
       code: val.code,
-      quantity: val.qty,
+      quantity: val.qty.toNumber(),
       revenue: val.revenue.toNumber(),
       cost: val.cost.toNumber(),
       profit: val.revenue.minus(val.cost).toNumber()
@@ -886,41 +1054,32 @@ export const getTradingAccountDataForDates = cache(async (startDate: Date, endDa
     sales = sales.plus(new Decimal(s.subtotal).minus(s.discountAmount));
   }
 
-  // B. Opening stock valuation (Sum of all stock transactions before startDate)
-  const prevTrans = await db.stockTransaction.findMany({
-    where: { createdAt: { lt: startDate } },
-    select: { quantity: true, unitCost: true }
-  });
+  // B. Opening stock valuation (using getStockValuation helper as of startDate - 1ms)
+  const openingStock = await getStockValuation(new Date(startDate.getTime() - 1));
 
-  let openingStock = new Decimal(0);
-  for (const pt of prevTrans) {
-    openingStock = openingStock.plus(new Decimal(pt.quantity).times(pt.unitCost));
-  }
-
-  // C. Purchases during the period (PURCHASE_IN stock transactions)
+  // C. Purchases during the period (including net adjustments to match periodic accounting)
   const purchTrans = await db.stockTransaction.findMany({
     where: {
       createdAt: { gte: startDate, lte: endDate },
-      type: "PURCHASE_IN"
+      type: { in: ["PURCHASE_IN", "ADJUSTMENT_IN", "ADJUSTMENT_OUT", "RETURN_OUT", "RETURN_IN"] }
     },
-    select: { quantity: true, unitCost: true }
+    select: { productId: true, quantity: true, unitCost: true }
   });
 
   let purchases = new Decimal(0);
   for (const pt of purchTrans) {
-    purchases = purchases.plus(new Decimal(pt.quantity).times(pt.unitCost));
+    const qty = new Decimal(pt.quantity);
+    const variant = await db.productVariant.findFirst({
+      where: { productId: pt.productId, isActive: true },
+      orderBy: { effectiveDate: "desc" },
+      select: { purchasePrice: true }
+    });
+    const cost = variant ? new Decimal(variant.purchasePrice) : new Decimal(pt.unitCost);
+    purchases = purchases.plus(qty.times(cost));
   }
 
-  // D. Closing Stock Valuation (Sum of all stock transactions up to endDate)
-  const endTrans = await db.stockTransaction.findMany({
-    where: { createdAt: { lte: endDate } },
-    select: { quantity: true, unitCost: true }
-  });
-
-  let closingStock = new Decimal(0);
-  for (const et of endTrans) {
-    closingStock = closingStock.plus(new Decimal(et.quantity).times(et.unitCost));
-  }
+  // D. Closing Stock Valuation (using getStockValuation helper as of endDate)
+  const closingStock = await getStockValuation(endDate);
 
   // E. Cost of Goods Sold calculations
   const cogs = openingStock.plus(purchases).minus(closingStock);
@@ -967,13 +1126,19 @@ export const getProfitLossDataForDates = cache(async (startDate: Date, endDate: 
       createdAt: { gte: startDate, lte: endDate },
       type: { in: ["SALE_OUT", "PROJECT_ISSUE"] }
     },
-    select: { quantity: true, unitCost: true }
+    select: { productId: true, quantity: true, unitCost: true }
   });
 
   let cogs = new Decimal(0);
   for (const st of soldTransactions) {
     const qty = new Decimal(st.quantity).abs();
-    const cost = new Decimal(st.unitCost);
+    // Use variant purchase price as cost price (fallback to st.unitCost if variant not found)
+    const variant = await db.productVariant.findFirst({
+      where: { productId: st.productId, isActive: true },
+      orderBy: { effectiveDate: "desc" },
+      select: { purchasePrice: true }
+    });
+    const cost = variant ? new Decimal(variant.purchasePrice) : new Decimal(st.unitCost);
     cogs = cogs.plus(qty.times(cost));
   }
 

@@ -420,6 +420,7 @@ export function PurchaseOrderTable({ orders, userId }: PurchaseOrderTableProps) 
                         <thead>
                           <tr className="bg-zinc-50 border-b border-zinc-200 text-left font-semibold text-zinc-500">
                             <th className="p-3.5">Product Item</th>
+                            <th className="p-3.5 text-center">Alternate Unit</th>
                             <th className="p-3.5 text-right">Ordered Qty</th>
                             {isReceived && <th className="p-3.5 text-right">Received Qty</th>}
                             <th className="p-3.5 text-right">Unit Price (NPR)</th>
@@ -440,6 +441,15 @@ export function PurchaseOrderTable({ orders, userId }: PurchaseOrderTableProps) 
                                 <td className="p-3.5">
                                   <div className="font-semibold text-zinc-900">{item.productName}</div>
                                   <div className="text-[10px] text-zinc-500 font-mono mt-0.5">{item.productCode}</div>
+                                </td>
+                                <td className="p-3.5 text-center text-zinc-700 text-xs font-medium">
+                                  {item.productPurchaseUnit && item.productPurchaseUnit !== item.productBaseUnit ? (
+                                    <span>
+                                      1 {item.productPurchaseUnit} = {Number(item.productPurchaseConversionFactor)} {item.productBaseUnit}
+                                    </span>
+                                  ) : (
+                                    <span className="text-zinc-400 italic">—</span>
+                                  )}
                                 </td>
                                 <td className="p-3.5 text-right font-medium text-zinc-700">{item.orderedQty} {item.productUnit}</td>
                                 {isReceived && (

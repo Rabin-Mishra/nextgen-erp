@@ -1,6 +1,7 @@
 import { getDb } from '@/lib/db';
 import { inventoryItemSchema, inventorySummarySchema } from './types';
 import { serializeForClient } from '@/lib/utils';
+import Decimal from 'decimal.js';
 
 type FetchInventoryOptions = {
   page?: number;
@@ -75,8 +76,12 @@ export async function fetchInventoryItems(opts: FetchInventoryOptions = {}) {
       reservedQty: s.reservedQty,
       minStockLevel: s.product.minStockLevel,
       reorderLevel: s.product.reorderLevel,
-      status: s.quantity <= s.product.reorderLevel ? 'reorder' : 'ok',
+      status: new Decimal(s.quantity).lessThanOrEqualTo(s.product.reorderLevel) ? 'reorder' : 'ok',
       lastUpdated: s.lastUpdated.toISOString(),
+      purchaseUnit: s.product.purchaseUnit,
+      purchaseConversionFactor: s.product.purchaseConversionFactor,
+      altSalesUnit: s.product.altSalesUnit,
+      altSalesConversionFactor: s.product.altSalesConversionFactor,
     });
   });
 
@@ -117,7 +122,7 @@ export async function fetchInventoryAlerts() {
       warehouse: true 
     } 
   });
-  const alerts = all.filter((s) => s.quantity <= s.product.reorderLevel).map((s) => {
+  const alerts = all.filter((s) => new Decimal(s.quantity).lessThanOrEqualTo(s.product.reorderLevel)).map((s) => {
     return inventoryItemSchema.parse({
       id: s.id,
       productId: s.productId,
@@ -132,8 +137,12 @@ export async function fetchInventoryAlerts() {
       reservedQty: s.reservedQty,
       minStockLevel: s.product.minStockLevel,
       reorderLevel: s.product.reorderLevel,
-      status: s.quantity <= s.product.reorderLevel ? 'reorder' : 'ok',
+      status: new Decimal(s.quantity).lessThanOrEqualTo(s.product.reorderLevel) ? 'reorder' : 'ok',
       lastUpdated: s.lastUpdated.toISOString(),
+      purchaseUnit: s.product.purchaseUnit,
+      purchaseConversionFactor: s.product.purchaseConversionFactor,
+      altSalesUnit: s.product.altSalesUnit,
+      altSalesConversionFactor: s.product.altSalesConversionFactor,
     });
   });
 

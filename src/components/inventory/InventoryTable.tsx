@@ -13,6 +13,7 @@ import { useRouter } from 'next/navigation';
 import { deleteInventoryProduct } from "@/modules/inventory/actions";
 import { toast } from "sonner";
 import { Trash2 } from "lucide-react";
+import { formatUomDisplay } from "@/lib/uom";
 
 interface InventoryTableProps {
   items: InventoryItemSchema[];
@@ -69,27 +70,43 @@ export function InventoryTable({ items }: InventoryTableProps) {
     {
       accessorKey: "quantity",
       header: "Available",
-      cell: ({ row }) => (
-        <span className="font-bold font-mono text-emerald-600 dark:text-emerald-400">
-          {row.original.quantity}
-        </span>
-      ),
+      cell: ({ row }) => {
+        const display = formatUomDisplay(
+          row.original.quantity,
+          row.original.altSalesConversionFactor || row.original.purchaseConversionFactor,
+          row.original.unit,
+          row.original.altSalesUnit || row.original.purchaseUnit
+        );
+        return (
+          <span className="font-bold font-mono text-emerald-600 dark:text-emerald-400">
+            {display}
+          </span>
+        );
+      },
     },
     {
       accessorKey: "reservedQty",
       header: "Reserved",
-      cell: ({ row }) => (
-        <span className="font-bold font-mono text-amber-600 dark:text-amber-500">
-          {row.original.reservedQty}
-        </span>
-      ),
+      cell: ({ row }) => {
+        const display = formatUomDisplay(
+          row.original.reservedQty,
+          row.original.altSalesConversionFactor || row.original.purchaseConversionFactor,
+          row.original.unit,
+          row.original.altSalesUnit || row.original.purchaseUnit
+        );
+        return (
+          <span className="font-bold font-mono text-amber-600 dark:text-amber-500">
+            {display}
+          </span>
+        );
+      },
     },
     {
       accessorKey: "reorderLevel",
       header: "Reorder Level",
       cell: ({ row }) => (
         <span className="font-bold font-mono text-rose-500 dark:text-rose-400">
-          {row.original.reorderLevel}
+          {row.original.reorderLevel} {row.original.unit}
         </span>
       ),
     },

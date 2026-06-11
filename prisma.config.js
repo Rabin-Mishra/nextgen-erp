@@ -1,3 +1,9 @@
+try {
+  require("dotenv").config();
+} catch (e) {
+  // dotenv might not be available in production, ignore
+}
+
 module.exports = {
   schema: "prisma/schema.prisma",
   migrations: {

@@ -22,11 +22,32 @@ export function EditProductModal({ productId, open, onOpenChange }: EditProductM
   const [fetching, setFetching] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<{
+    name: string;
+    categoryId: string;
+    brandId: string;
+    unit: string;
+    purchaseUnit: string;
+    purchaseConversionFactor: number | "";
+    altSalesUnit: string;
+    altSalesConversionFactor: number | "";
+    description: string;
+    minStockLevel: number;
+    reorderLevel: number;
+    supplierId: string;
+    purchasePrice: number;
+    retailPrice: number;
+    wholesalePrice: number;
+    projectPrice: number;
+  }>({
     name: "",
     categoryId: "",
     brandId: "",
     unit: "BAG",
+    purchaseUnit: "",
+    purchaseConversionFactor: 1,
+    altSalesUnit: "",
+    altSalesConversionFactor: 1,
     description: "",
     minStockLevel: 0,
     reorderLevel: 0,
@@ -78,6 +99,10 @@ export function EditProductModal({ productId, open, onOpenChange }: EditProductM
           categoryId: product.categoryId || "",
           brandId: product.brandId || "",
           unit: product.unit || "BAG",
+          purchaseUnit: product.purchaseUnit || "",
+          purchaseConversionFactor: product.purchaseConversionFactor ? Number(product.purchaseConversionFactor) : 1,
+          altSalesUnit: product.altSalesUnit || "",
+          altSalesConversionFactor: product.altSalesConversionFactor ? Number(product.altSalesConversionFactor) : 1,
           description: product.description || "",
           minStockLevel: product.minStockLevel ?? 0,
           reorderLevel: product.reorderLevel ?? 0,
@@ -131,6 +156,13 @@ export function EditProductModal({ productId, open, onOpenChange }: EditProductM
       if (form.projectPrice <= 0) newErrors.projectPrice = "Must be > 0";
     }
 
+    if (form.purchaseUnit && (!form.purchaseConversionFactor || form.purchaseConversionFactor <= 0)) {
+      newErrors.purchaseConversionFactor = "Conversion factor must be greater than 0";
+    }
+    if (form.altSalesUnit && (!form.altSalesConversionFactor || form.altSalesConversionFactor <= 0)) {
+      newErrors.altSalesConversionFactor = "Conversion factor must be greater than 0";
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   }
@@ -146,6 +178,10 @@ export function EditProductModal({ productId, open, onOpenChange }: EditProductM
         categoryId: form.categoryId,
         brandId: form.brandId,
         unit: form.unit,
+        purchaseUnit: form.purchaseUnit || undefined,
+        purchaseConversionFactor: form.purchaseUnit ? Number(form.purchaseConversionFactor) : undefined,
+        altSalesUnit: form.altSalesUnit || undefined,
+        altSalesConversionFactor: form.altSalesUnit ? Number(form.altSalesConversionFactor) : undefined,
         description: form.description || undefined,
         minStockLevel: form.minStockLevel,
         reorderLevel: form.reorderLevel,
@@ -254,14 +290,9 @@ export function EditProductModal({ productId, open, onOpenChange }: EditProductM
                     required
                     disabled={loading}
                   >
-                    <option value="BAG">BAG</option>
-                    <option value="PCS">PCS</option>
-                    <option value="METER">METER</option>
-                    <option value="KG">KG</option>
-                    <option value="LITRE">LITRE</option>
-                    <option value="SQ_FT">SQ FT</option>
-                    <option value="ROLL">ROLL</option>
-                    <option value="BOX">BOX</option>
+                    {["BAG", "PCS", "METER", "KG", "LITRE", "SQ_FT", "ROLL", "BOX", "CARTON", "TIN", "DRUM", "SHEET", "BUNDLE", "SET", "PAIR", "FEET", "TON"].map(u => (
+                      <option key={u} value={u}>{u}</option>
+                    ))}
                   </select>
                   {errors.unit && <span className="text-xs text-rose-500 font-medium">{errors.unit}</span>}
                 </div>
@@ -277,6 +308,106 @@ export function EditProductModal({ productId, open, onOpenChange }: EditProductM
                     disabled={loading}
                   />
                   {errors.reorderLevel && <span className="text-xs text-rose-500 font-medium">{errors.reorderLevel}</span>}
+                </div>
+
+                {/* UoM Configurations */}
+                <div className="space-y-4 col-span-2 border-t border-zinc-100 dark:border-zinc-900 pt-4">
+                  <h4 className="text-xs font-bold text-zinc-600 dark:text-zinc-400 uppercase tracking-wide">
+                    Alternate Units of Measure (UoM)
+                  </h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    {/* Purchase UoM */}
+                    <div className="p-3 border border-zinc-100 dark:border-zinc-900 rounded-xl bg-zinc-50/30 dark:bg-zinc-900/10 space-y-3">
+                      <span className="text-xs font-bold text-amber-500 uppercase tracking-wide">
+                        Default Purchase Unit
+                      </span>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="edit-purchaseUnit" className="text-[11px] font-bold text-zinc-500 uppercase">
+                          Purchase Unit
+                        </Label>
+                        <select
+                          id="edit-purchaseUnit"
+                          value={form.purchaseUnit || ""}
+                          onChange={(e) => update("purchaseUnit", e.target.value || "")}
+                          className="w-full h-10 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-transparent px-3 py-2 text-sm text-zinc-900 dark:text-zinc-50 bg-white dark:bg-zinc-950"
+                          disabled={loading}
+                        >
+                          <option value="">Same as Base ({form.unit})</option>
+                          {["BAG", "PCS", "METER", "KG", "LITRE", "SQ_FT", "ROLL", "BOX", "CARTON", "TIN", "DRUM", "SHEET", "BUNDLE", "SET", "PAIR", "FEET", "TON"].map(u => (
+                            <option key={u} value={u}>{u}</option>
+                          ))}
+                        </select>
+                      </div>
+                      {form.purchaseUnit && form.purchaseUnit !== form.unit && (
+                        <div className="space-y-1.5 animate-fadeIn">
+                          <Label htmlFor="edit-purchaseConversionFactor" className="text-[11px] font-bold text-zinc-500 uppercase">
+                            Conversion Factor (1 {form.purchaseUnit} = X {form.unit})
+                          </Label>
+                          <Input
+                            id="edit-purchaseConversionFactor"
+                            type="number"
+                            step="any"
+                            placeholder="e.g. 10"
+                            value={form.purchaseConversionFactor}
+                            onChange={(e) => update("purchaseConversionFactor", parseFloat(e.target.value) || "")}
+                            className="h-10 rounded-xl border-zinc-200 dark:border-zinc-800 font-mono"
+                            disabled={loading}
+                          />
+                          {errors.purchaseConversionFactor && (
+                            <span className="text-xs text-rose-500 font-medium">
+                              {errors.purchaseConversionFactor}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Sales UoM */}
+                    <div className="p-3 border border-zinc-100 dark:border-zinc-900 rounded-xl bg-zinc-50/30 dark:bg-zinc-900/10 space-y-3">
+                      <span className="text-xs font-bold text-amber-500 uppercase tracking-wide">
+                        Alternate Sales Unit
+                      </span>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="edit-altSalesUnit" className="text-[11px] font-bold text-zinc-500 uppercase">
+                          Sales Unit
+                        </Label>
+                        <select
+                          id="edit-altSalesUnit"
+                          value={form.altSalesUnit || ""}
+                          onChange={(e) => update("altSalesUnit", e.target.value || "")}
+                          className="w-full h-10 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-transparent px-3 py-2 text-sm text-zinc-900 dark:text-zinc-50 bg-white dark:bg-zinc-950"
+                          disabled={loading}
+                        >
+                          <option value="">Same as Base ({form.unit})</option>
+                          {["BAG", "PCS", "METER", "KG", "LITRE", "SQ_FT", "ROLL", "BOX", "CARTON", "TIN", "DRUM", "SHEET", "BUNDLE", "SET", "PAIR", "FEET", "TON"].map(u => (
+                            <option key={u} value={u}>{u}</option>
+                          ))}
+                        </select>
+                      </div>
+                      {form.altSalesUnit && form.altSalesUnit !== form.unit && (
+                        <div className="space-y-1.5 animate-fadeIn">
+                          <Label htmlFor="edit-altSalesConversionFactor" className="text-[11px] font-bold text-zinc-500 uppercase">
+                            Conversion Factor (1 {form.altSalesUnit} = X {form.unit})
+                          </Label>
+                          <Input
+                            id="edit-altSalesConversionFactor"
+                            type="number"
+                            step="any"
+                            placeholder="e.g. 10"
+                            value={form.altSalesConversionFactor}
+                            onChange={(e) => update("altSalesConversionFactor", parseFloat(e.target.value) || "")}
+                            className="h-10 rounded-xl border-zinc-200 dark:border-zinc-800 font-mono"
+                            disabled={loading}
+                          />
+                          {errors.altSalesConversionFactor && (
+                            <span className="text-xs text-rose-500 font-medium">
+                              {errors.altSalesConversionFactor}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
 
                 <div className="space-y-1.5 col-span-2">

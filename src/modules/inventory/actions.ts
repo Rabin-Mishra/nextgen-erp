@@ -85,6 +85,10 @@ export async function createInventoryItem(data: CreateInventoryItemInput, userId
           categoryId: parsed.categoryId,
           brandId: parsed.brandId,
           unit: parsed.unit,
+          purchaseUnit: parsed.purchaseUnit,
+          purchaseConversionFactor: parsed.purchaseConversionFactor ? new Decimal(parsed.purchaseConversionFactor) : null,
+          altSalesUnit: parsed.altSalesUnit,
+          altSalesConversionFactor: parsed.altSalesConversionFactor ? new Decimal(parsed.altSalesConversionFactor) : null,
           description: parsed.description,
           minStockLevel: parsed.minStockLevel,
           reorderLevel: parsed.reorderLevel,
@@ -161,7 +165,7 @@ export async function createInventoryItem(data: CreateInventoryItemInput, userId
         stock = await tx.inventoryStock.update({
           where: { id: existingStock.id },
           data: {
-            quantity: existingStock.quantity + parsed.quantity,
+            quantity: new Decimal(existingStock.quantity).plus(parsed.quantity),
           },
         });
       } else {
@@ -191,6 +195,9 @@ export async function createInventoryItem(data: CreateInventoryItemInput, userId
           ? (parsed.quantity > 0 ? 'Initial stock allocation' : 'Created item with zero opening stock')
           : `Grouped duplicate purchase: stock added to master product`,
         userId: activeUserId,
+        transactionUnit: parsed.unit,
+        conversionFactor: new Decimal(1),
+        originalQty: new Decimal(parsed.quantity),
       },
     });
 
@@ -226,11 +233,11 @@ export async function createInventoryItem(data: CreateInventoryItemInput, userId
     warehouse: result.warehouse?.name ?? parsed.warehouseId,
     warehouseId: parsed.warehouseId,
     unit: result.product.unit,
-    quantity: result.stock.quantity,
-    reservedQty: result.stock.reservedQty,
+    quantity: Number(result.stock.quantity.toString()),
+    reservedQty: Number(result.stock.reservedQty.toString()),
     minStockLevel: result.product.minStockLevel,
     reorderLevel: result.product.reorderLevel,
-    status: needsReorder(result.stock.quantity, result.product.reorderLevel) ? 'reorder' : 'ok',
+    status: needsReorder(Number(result.stock.quantity.toString()), result.product.reorderLevel) ? 'reorder' : 'ok',
     lastUpdated: result.stock.lastUpdated.toISOString(),
   });
 }
@@ -249,8 +256,8 @@ export async function adjustInventoryQuantity(stockId: string, adjustment: numbe
     throw new Error("Inventory stock record not found.");
   }
 
-  const updatedQuantity = existingStock.quantity + parsed.adjustment;
-  if (updatedQuantity < 0) {
+  const updatedQuantity = new Decimal(existingStock.quantity).plus(parsed.adjustment);
+  if (updatedQuantity.lessThan(0)) {
     throw new Error("Stock adjustment cannot result in negative inventory.");
   }
 
@@ -271,6 +278,9 @@ export async function adjustInventoryQuantity(stockId: string, adjustment: numbe
         referenceId: existingStock.id,
         notes: parsed.notes,
         userId: activeUserId,
+        transactionUnit: existingStock.product.unit,
+        conversionFactor: new Decimal(1),
+        originalQty: new Decimal(parsed.adjustment),
       },
     });
 
@@ -298,8 +308,8 @@ export async function adjustInventoryQuantity(stockId: string, adjustment: numbe
 
   return {
     id: result.id,
-    quantity: result.quantity,
-    reservedQty: result.reservedQty,
+    quantity: Number(result.quantity.toString()),
+    reservedQty: Number(result.reservedQty.toString()),
     updatedAt: result.lastUpdated.toISOString(),
   };
 }
@@ -553,6 +563,10 @@ export async function updateInventoryProduct(productId: string, data: {
   categoryId: string;
   brandId: string;
   unit: any;
+  purchaseUnit?: any;
+  purchaseConversionFactor?: number | string;
+  altSalesUnit?: any;
+  altSalesConversionFactor?: number | string;
   description?: string;
   minStockLevel: number;
   reorderLevel: number;
@@ -587,6 +601,10 @@ export async function updateInventoryProduct(productId: string, data: {
         categoryId: data.categoryId,
         brandId: data.brandId,
         unit: data.unit,
+        purchaseUnit: data.purchaseUnit || null,
+        purchaseConversionFactor: data.purchaseConversionFactor ? new Decimal(data.purchaseConversionFactor) : null,
+        altSalesUnit: data.altSalesUnit || null,
+        altSalesConversionFactor: data.altSalesConversionFactor ? new Decimal(data.altSalesConversionFactor) : null,
         description: data.description?.trim() || null,
         minStockLevel: Number(data.minStockLevel),
         reorderLevel: Number(data.reorderLevel),

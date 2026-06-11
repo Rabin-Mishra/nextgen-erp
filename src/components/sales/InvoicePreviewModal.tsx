@@ -109,6 +109,7 @@ export function InvoicePreviewModal({ open = false, onOpenChange, invoice }: Inv
                 <thead>
                   <tr className="border-b bg-zinc-50 text-zinc-700">
                     <th className="px-3 py-2.5 text-left font-semibold">Item & Returns Description</th>
+                    <th className="px-3 py-2.5 text-center font-semibold w-32">Alternate Unit</th>
                     <th className="px-3 py-2.5 text-right font-semibold w-36">Qty</th>
                     <th className="px-3 py-2.5 text-right font-semibold w-28">Rate (NPR)</th>
                     <th className="px-3 py-2.5 text-right font-semibold w-36">Total (NPR)</th>
@@ -162,6 +163,16 @@ export function InvoicePreviewModal({ open = false, onOpenChange, invoice }: Inv
                                 </div>
                               ))}
                             </div>
+                          )}
+                        </td>
+
+                        <td className="px-3 py-3 text-center text-zinc-700 text-xs font-medium">
+                          {item.productAltSalesUnit && item.productAltSalesUnit !== item.productBaseUnit ? (
+                            <span>
+                              1 {item.productAltSalesUnit} = {Number(item.productAltSalesConversionFactor)} {item.productBaseUnit}
+                            </span>
+                          ) : (
+                            <span className="text-zinc-400 italic">—</span>
                           )}
                         </td>
 

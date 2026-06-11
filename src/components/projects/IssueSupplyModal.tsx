@@ -22,6 +22,10 @@ interface IssueSupplyModalProps {
     code: string;
     name: string;
     unit: string;
+    purchaseUnit?: string | null;
+    purchaseConversionFactor?: number | null;
+    altSalesUnit?: string | null;
+    altSalesConversionFactor?: number | null;
     projectPrice: string;
     stockByWarehouse: Array<{ warehouseId: string; warehouseName: string; availableQty: number }>;
   }>;
@@ -34,6 +38,8 @@ type LocalLineItem = {
   qty: number;
   unitPrice: number;
   notes: string;
+  salesUnit?: string;
+  conversionFactor?: number;
 };
 
 export function IssueSupplyModal({
@@ -88,6 +94,8 @@ export function IssueSupplyModal({
         qty: 1,
         unitPrice: parseFloat(product.projectPrice),
         notes: "",
+        salesUnit: product.unit,
+        conversionFactor: 1,
       },
     ]);
   };
@@ -98,9 +106,39 @@ export function IssueSupplyModal({
         if (item.id !== id) return item;
         const next = { ...item, ...patch };
         if (patch.productId) {
-          next.unitPrice = getProductPrice(patch.productId);
+          const product = products.find((p) => p.id === patch.productId);
+          next.unitPrice = product ? parseFloat(product.projectPrice) : 0;
+          next.salesUnit = product?.unit ?? "PCS";
+          next.conversionFactor = 1;
         }
         return next;
+      })
+    );
+  };
+
+  const handleUnitChange = (id: string, newUnit: string) => {
+    setItems((current) =>
+      current.map((item) => {
+        if (item.id !== id) return item;
+        const product = products.find((p) => p.id === item.productId);
+        if (!product) return { ...item, salesUnit: newUnit };
+
+        let factor = 1;
+        if (newUnit === product.altSalesUnit) {
+          factor = Number(product.altSalesConversionFactor) || 1;
+        } else if (newUnit === product.purchaseUnit) {
+          factor = Number(product.purchaseConversionFactor) || 1;
+        }
+
+        const basePrice = product ? parseFloat(product.projectPrice) : 0;
+        const unitPrice = basePrice * factor;
+
+        return {
+          ...item,
+          salesUnit: newUnit,
+          conversionFactor: factor,
+          unitPrice,
+        };
       })
     );
   };
@@ -162,10 +200,12 @@ export function IssueSupplyModal({
 
     // Verify stock bounds
     for (const item of items) {
+      const factor = item.conversionFactor ?? 1;
+      const baseQtyEquivalent = item.qty * factor;
       const available = getStockQty(item.productId);
-      if (item.qty > available) {
+      if (baseQtyEquivalent > available) {
         const name = products.find((p) => p.id === item.productId)?.name || "Item";
-        setError(`Insufficient stock for ${name} inside ${activeWarehouseName} (${item.qty} requested vs ${available} available)`);
+        setError(`Insufficient stock for ${name} inside ${activeWarehouseName} (${baseQtyEquivalent} ${getProductUnit(item.productId)} requested vs ${available} available)`);
         toast.error(`Stock bounds exceeded for ${name}!`);
         return;
       }
@@ -180,6 +220,8 @@ export function IssueSupplyModal({
         qty: Number(item.qty),
         unitPrice: Number(item.unitPrice),
         notes: item.notes || undefined,
+        salesUnit: item.salesUnit || undefined,
+        conversionFactor: item.conversionFactor ? Number(item.conversionFactor) : undefined,
       })),
       applyVat,
       additionalExpenses: additionalExpenses.map((exp) => ({
@@ -292,10 +334,28 @@ export function IssueSupplyModal({
               <div className="space-y-3 pt-3">
                 {items.map((item) => {
                   const stock = getStockQty(item.productId);
-                  const unit = getProductUnit(item.productId);
+                  const product = products.find((p) => p.id === item.productId);
+                  const baseUnit = product?.unit ?? "PCS";
+                  const factor = item.conversionFactor ?? 1;
+                  const baseQtyEquivalent = item.qty * factor;
+                  const isExceeded = baseQtyEquivalent > stock;
+
+                  // Build unique unit options
+                  const unitOptions = [];
+                  if (product) {
+                    unitOptions.push({ value: product.unit, label: product.unit });
+                    if (product.altSalesUnit && product.altSalesUnit !== product.unit) {
+                      unitOptions.push({ value: product.altSalesUnit, label: product.altSalesUnit });
+                    }
+                    if (product.purchaseUnit && product.purchaseUnit !== product.unit && product.purchaseUnit !== product.altSalesUnit) {
+                      unitOptions.push({ value: product.purchaseUnit, label: product.purchaseUnit });
+                    }
+                  }
+
                   return (
-                    <div key={item.id} className="grid grid-cols-12 gap-3 items-end pb-3 sm:pb-0">
-                      <div className="col-span-12 sm:col-span-4">
+                    <div key={item.id} className="grid grid-cols-12 gap-3 items-end pb-3 sm:pb-0 border-b pb-3 border-zinc-100 dark:border-zinc-800 last:border-0 last:pb-0">
+                      {/* Product */}
+                      <div className="col-span-12 sm:col-span-3">
                         <label className="text-[10px] text-zinc-500 block mb-0.5">Product *</label>
                         <select
                           value={item.productId}
@@ -310,21 +370,69 @@ export function IssueSupplyModal({
                         </select>
                       </div>
 
-                      <div className="col-span-4 sm:col-span-2">
+                      {/* Dispatch Qty */}
+                      <div className="col-span-6 sm:col-span-1.5 font-semibold">
                         <label className="text-[10px] text-zinc-500 block mb-0.5">Dispatch Qty *</label>
                         <Input
                           type="number"
                           value={item.qty}
                           min={1}
-                          onChange={(e) => updateLine(item.id, { qty: Math.max(1, parseInt(e.target.value) || 0) })}
-                          className="h-8 text-xs"
+                          onChange={(e) => updateLine(item.id, { qty: Math.max(1, parseFloat(e.target.value) || 0) })}
+                          className="h-8 text-xs font-semibold"
                         />
-                        <span className={item.qty > stock ? "text-[9px] font-semibold text-red-500 block mt-0.5" : "text-[9px] text-zinc-400 block mt-0.5"}>
-                          {stock} {unit} available
-                        </span>
+                        <div className="mt-1 space-y-1">
+                          {isExceeded ? (
+                            <span className="text-[9px] font-bold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/30 px-1 py-0.5 rounded border border-red-200/50 block w-max">
+                              Stock Exceeded!
+                            </span>
+                          ) : (
+                            <span className="text-[9px] font-bold text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-950/30 px-1 py-0.5 rounded border border-teal-200/50 block w-max">
+                              {stock} {baseUnit} av.
+                            </span>
+                          )}
+                          {factor > 1 && (
+                            <span className="text-[9px] font-bold text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 px-1 py-0.5 rounded border border-amber-200/50 block w-max">
+                              equiv: {baseQtyEquivalent} {baseUnit}
+                            </span>
+                          )}
+                        </div>
                       </div>
 
-                      <div className="col-span-4 sm:col-span-2">
+                      {/* Unit */}
+                      <div className="col-span-6 sm:col-span-1.5 font-bold">
+                        <label className="text-[10px] text-zinc-500 block mb-0.5">Unit</label>
+                        <select
+                          value={item.salesUnit || baseUnit}
+                          onChange={(e) => handleUnitChange(item.id, e.target.value)}
+                          className="w-full border rounded-md px-3 py-1.5 text-xs bg-white dark:bg-zinc-950 font-bold text-purple-750 dark:text-purple-400"
+                        >
+                          {unitOptions.map((opt) => (
+                            <option key={opt.value} value={opt.value}>
+                              {opt.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Conv. Factor */}
+                      <div className="col-span-6 sm:col-span-1.5 font-bold">
+                        <label className="text-[10px] text-zinc-500 block mb-0.5">Conv. Factor</label>
+                        <Input
+                          type="number"
+                          value={item.conversionFactor ?? 1}
+                          readOnly
+                          disabled
+                          className="h-8 text-xs font-mono font-bold text-zinc-600 dark:text-zinc-400 bg-zinc-150"
+                        />
+                        {factor > 1 && (
+                          <span className="text-[9px] font-bold text-orange-600 dark:text-orange-400 mt-1 block">
+                            1 {item.salesUnit} = {factor} {baseUnit}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Project Rate */}
+                      <div className="col-span-6 sm:col-span-1.5">
                         <label className="text-[10px] text-zinc-500 block mb-0.5">Project Rate (NPR)</label>
                         <Input
                           type="number"
@@ -333,9 +441,13 @@ export function IssueSupplyModal({
                           onChange={(e) => updateLine(item.id, { unitPrice: Math.max(0, parseFloat(e.target.value) || 0) })}
                           className="h-8 text-xs"
                         />
+                        <span className="text-[9px] text-zinc-400 block mt-1 font-mono">
+                          per {item.salesUnit || baseUnit}
+                        </span>
                       </div>
 
-                      <div className="col-span-4 sm:col-span-3">
+                      {/* Item Line Notes */}
+                      <div className="col-span-10 sm:col-span-2">
                         <label className="text-[10px] text-zinc-500 block mb-0.5">Item Line Notes</label>
                         <Input
                           placeholder="e.g. standard specs, item notes..."
@@ -345,7 +457,8 @@ export function IssueSupplyModal({
                         />
                       </div>
 
-                      <div className="col-span-12 sm:col-span-1 flex justify-end">
+                      {/* Actions */}
+                      <div className="col-span-2 sm:col-span-1 flex justify-end">
                         <Button
                           variant="ghost"
                           size="icon"
