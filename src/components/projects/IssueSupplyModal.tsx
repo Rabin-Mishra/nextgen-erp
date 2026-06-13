@@ -471,6 +471,13 @@ export function IssueSupplyModal({
                     </div>
                   );
                 })}
+                {items.length > 0 && (
+                  <div className="flex justify-start pt-2">
+                    <Button variant="outline" size="sm" onClick={addLine} disabled={!warehouseId}>
+                      + Add Supply
+                    </Button>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -537,6 +544,13 @@ export function IssueSupplyModal({
                     </div>
                   </div>
                 ))}
+                {additionalExpenses.length > 0 && (
+                  <div className="flex justify-start pt-2">
+                    <Button variant="outline" size="sm" onClick={addAdditionalExpense} disabled={!warehouseId}>
+                      + Add Expense
+                    </Button>
+                  </div>
+                )}
               </div>
             )}
           </div>

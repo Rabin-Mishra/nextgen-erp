@@ -402,6 +402,11 @@ export function CreateInvoiceForm({ customers, products, projects, warehouses }:
                           </div>
                         );
                       })}
+                      {items.length > 0 && (
+                        <div className="flex justify-start pt-2">
+                          <Button type="button" variant="outline" onClick={addLine}>Add Item</Button>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

@@ -525,6 +525,21 @@ export function NewPurchaseOrderForm({ userId }: NewPurchaseOrderFormProps) {
                       </div>
                     );
                   })}
+
+                  {items.length > 0 && (
+                    <div className="flex justify-end pt-1">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={addItem}
+                        disabled={!supplierId}
+                        className="border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50 shadow-sm"
+                      >
+                        <Plus size={14} className="mr-1" /> Add Procurement Line
+                      </Button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

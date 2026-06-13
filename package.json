@@ -13,6 +13,7 @@
     "db:studio": "prisma studio",
     "db:generate": "prisma generate",
     "db:reset": "npx tsx scripts/reset-db.ts",
+    "db:restore": "npx tsx scripts/import-backup.ts",
     "docker:start": "bash scripts/docker-start.sh",
     "docker:stop": "bash scripts/docker-stop.sh",
     "setup": "bash scripts/setup.sh",
