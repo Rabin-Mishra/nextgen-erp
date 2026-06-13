@@ -13,8 +13,8 @@ export const inventoryItemSchema = z.object({
   unit: z.nativeEnum(Unit),
   quantity: z.preprocess((val: any) => (val ? Number(val.toString()) : 0), z.number()),
   reservedQty: z.preprocess((val: any) => (val ? Number(val.toString()) : 0), z.number().nonnegative()),
-  minStockLevel: z.number().int().nonnegative(),
-  reorderLevel: z.number().int().nonnegative(),
+  minStockLevel: z.preprocess((val: any) => (val ? Number(val.toString()) : 0), z.number().nonnegative()),
+  reorderLevel: z.preprocess((val: any) => (val ? Number(val.toString()) : 0), z.number().nonnegative()),
   status: z.enum(["ok", "reorder"]),
   lastUpdated: z.string(),
   purchaseUnit: z.nativeEnum(Unit).optional().nullable(),
@@ -36,8 +36,8 @@ export const createInventoryItemSchema = z.object({
   altSalesUnit: z.nativeEnum(Unit).optional().nullable(),
   altSalesConversionFactor: z.number().positive().optional().nullable(),
   description: z.string().optional(),
-  minStockLevel: z.number().int().nonnegative().default(0),
-  reorderLevel: z.number().int().nonnegative().default(0),
+  minStockLevel: z.number().nonnegative().default(0),
+  reorderLevel: z.number().nonnegative().default(0),
   quantity: z.number().nonnegative(),
   variants: z
     .array(
@@ -61,6 +61,7 @@ export const adjustInventoryQuantitySchema = z.object({
   stockId: z.string().min(1),
   adjustment: z.number(),
   notes: z.string().optional(),
+  newReorderLevel: z.number().nonnegative().optional(),
 });
 
 export type AdjustInventoryQuantityInput = z.infer<typeof adjustInventoryQuantitySchema>;

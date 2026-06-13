@@ -41,7 +41,10 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
   let lowStockCount = 0;
   for (const p of products) {
     const stockQty = p.stockEntries.reduce((sum, entry) => sum + entry.quantity.toNumber(), 0);
-    if (stockQty <= p.reorderLevel) {
+    const reorderVal = p.reorderLevel === null || p.reorderLevel === undefined
+      ? 0
+      : (typeof p.reorderLevel === "number" ? p.reorderLevel : Number(p.reorderLevel.toString()));
+    if (stockQty <= reorderVal) {
       lowStockCount++;
     }
   }
@@ -81,7 +84,7 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
 
         {/* Scrollable Page Body */}
         <main className="flex-1 overflow-y-auto p-6 lg:p-8">
-          <div className="mx-auto max-w-7xl h-full">
+          <div className="mx-auto max-w-[1600px] w-full h-full">
             {children}
           </div>
         </main>

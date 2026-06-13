@@ -93,7 +93,10 @@ export const getDashboardKPIs = cache(async (month: number, year: number) => {
   let lowStockCount = 0;
   for (const p of products) {
     const stockQty = p.stockEntries.reduce((sum, entry) => sum + entry.quantity.toNumber(), 0);
-    if (stockQty <= p.reorderLevel) {
+    const reorderVal = p.reorderLevel === null || p.reorderLevel === undefined
+      ? 0
+      : (typeof p.reorderLevel === "number" ? p.reorderLevel : Number(p.reorderLevel.toString()));
+    if (stockQty <= reorderVal) {
       lowStockCount++;
     }
   }
@@ -153,12 +156,15 @@ export async function getLowStockAlerts(limit = 5) {
   const alerts = products
     .map(p => {
       const stockQty = p.stockEntries.reduce((sum, entry) => sum + entry.quantity.toNumber(), 0);
+      const reorderVal = p.reorderLevel === null || p.reorderLevel === undefined
+        ? 0
+        : (typeof p.reorderLevel === "number" ? p.reorderLevel : Number(p.reorderLevel.toString()));
       return {
         id: p.id,
         code: p.code,
         name: p.name,
         stock: stockQty,
-        reorderAt: p.reorderLevel
+        reorderAt: reorderVal
       };
     })
     .filter(item => item.stock <= item.reorderAt)

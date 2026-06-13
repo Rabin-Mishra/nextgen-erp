@@ -379,10 +379,11 @@ export function AddProductModal() {
                 <Input
                   id="quantity"
                   type="number"
+                  step="any"
                   placeholder="0"
                   value={form.quantity}
                   onChange={(e) =>
-                    update("quantity", Math.max(0, Number(e.target.value)))
+                    update("quantity", Math.max(0, parseFloat(e.target.value) || 0))
                   }
                   className="h-10 rounded-xl border-zinc-200 dark:border-zinc-800"
                 />
@@ -403,10 +404,11 @@ export function AddProductModal() {
                 <Input
                   id="reorderLevel"
                   type="number"
+                  step="any"
                   placeholder="0"
                   value={form.reorderLevel}
                   onChange={(e) =>
-                    update("reorderLevel", Math.max(0, Number(e.target.value)))
+                    update("reorderLevel", Math.max(0, parseFloat(e.target.value) || 0))
                   }
                   className="h-10 rounded-xl border-zinc-200 dark:border-zinc-800"
                 />

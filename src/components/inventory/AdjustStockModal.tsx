@@ -34,6 +34,7 @@ export function AdjustStockModal({
 
   const [stockId, setStockId] = useState(initialStockId || "");
   const [adjustment, setAdjustment] = useState<string>("");
+  const [newReorderLevel, setNewReorderLevel] = useState<string>("");
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
@@ -43,6 +44,7 @@ export function AdjustStockModal({
     if (open) {
       setStockId(initialStockId || "");
       setAdjustment("");
+      setNewReorderLevel("");
       setNotes("");
     }
   }, [open, initialStockId]);
@@ -52,7 +54,7 @@ export function AdjustStockModal({
 
   // Compute stock levels preview
   const currentQty = activeStock ? Number(activeStock.quantity) : 0;
-  const adjNum = parseInt(adjustment) || 0;
+  const adjNum = parseFloat(adjustment) || 0;
   const previewQty = currentQty + adjNum;
 
   async function submit() {
@@ -60,8 +62,11 @@ export function AdjustStockModal({
       toast.error("Please select a target product stock record");
       return;
     }
-    if (adjNum === 0) {
-      toast.error("Adjustment quantity must be a non-zero positive or negative integer");
+    const hasQtyAdjustment = adjNum !== 0;
+    const hasReorderLevelAdjustment = newReorderLevel.trim() !== "";
+
+    if (!hasQtyAdjustment && !hasReorderLevelAdjustment) {
+      toast.error("Please specify a stock quantity adjustment or a new reorder level");
       return;
     }
     if (previewQty < 0) {
@@ -74,18 +79,23 @@ export function AdjustStockModal({
       const res = await fetch("/api/inventory/adjust", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ stockId, adjustment: adjNum, notes: notes || undefined }),
+        body: JSON.stringify({
+          stockId,
+          adjustment: adjNum,
+          newReorderLevel: hasReorderLevelAdjustment ? parseFloat(newReorderLevel) : undefined,
+          notes: notes || undefined,
+        }),
       });
       
       const j = await res.json();
       if (!res.ok) throw new Error(j.error || "Failed to submit stock adjustment");
       
-      toast.success("Stock level successfully adjusted!");
+      toast.success("Stock details successfully adjusted!");
       setOpen(false);
       router.refresh();
     } catch (err: any) {
       console.error(err);
-      toast.error(err.message || "Failed to adjust stock level");
+      toast.error(err.message || "Failed to adjust stock details");
     } finally {
       setLoading(false);
     }
@@ -148,11 +158,12 @@ export function AdjustStockModal({
           )}
 
           {/* Adjustment Value Inputs */}
-          <div className="grid grid-cols-1 gap-4">
+          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <Label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Adjustment Quantity (+/-) *</Label>
+              <Label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Adjustment Quantity (+/-)</Label>
               <Input
                 type="number"
+                step="any"
                 placeholder="e.g. 50 or -15"
                 value={adjustment}
                 onChange={(e) => setAdjustment(e.target.value)}
@@ -160,7 +171,23 @@ export function AdjustStockModal({
                 className="h-10 rounded-xl border-zinc-200 text-zinc-900 bg-white font-mono placeholder:text-zinc-400 focus:ring-amber-500/50"
               />
               <p className="text-[10px] text-zinc-400 font-medium leading-relaxed">
-                Enter a positive number to restock/add (e.g. `10`), or a negative number to write-off/deduct (e.g. `-5`).
+                Positive to add (e.g. `10`), negative to deduct (e.g. `-5`).
+              </p>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">New Reorder Level</Label>
+              <Input
+                type="number"
+                step="any"
+                placeholder={activeStock ? `${activeStock.reorderLevel}` : "e.g. 5"}
+                value={newReorderLevel}
+                onChange={(e) => setNewReorderLevel(e.target.value)}
+                disabled={!stockId || loading}
+                className="h-10 rounded-xl border-zinc-200 text-zinc-900 bg-white font-mono placeholder:text-zinc-400 focus:ring-amber-500/50"
+              />
+              <p className="text-[10px] text-zinc-400 font-medium leading-relaxed">
+                Update alert threshold (currently: {activeStock ? `${activeStock.reorderLevel} ${activeStock.unit}` : "N/A"}).
               </p>
             </div>
           </div>
@@ -212,7 +239,7 @@ export function AdjustStockModal({
           </Button>
           <Button
             onClick={submit}
-            disabled={!stockId || adjNum === 0 || previewQty < 0 || loading}
+            disabled={!stockId || (adjNum === 0 && newReorderLevel.trim() === "") || previewQty < 0 || loading}
             className="bg-primary text-primary-foreground hover:bg-primary/95 font-bold h-10 rounded-xl px-5 flex items-center gap-1.5 transition-all"
           >
             {loading ? (

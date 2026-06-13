@@ -226,8 +226,8 @@ model Product {
   altSalesUnit              Unit?    @map("alt_sales_unit")
   altSalesConversionFactor  Decimal? @default(1) @db.Decimal(10, 4) @map("alt_sales_conversion_factor")
   description               String?
-  minStockLevel             Int      @default(0) @map("min_stock_level") /// Alert when stock drops below this
-  reorderLevel              Int      @default(0) @map("reorder_level") /// Trigger reorder at this level
+  minStockLevel             Decimal  @default(0) @db.Decimal(12, 4) @map("min_stock_level") /// Alert when stock drops below this
+  reorderLevel              Decimal  @default(0) @db.Decimal(12, 4) @map("reorder_level") /// Trigger reorder at this level
   isActive                  Boolean  @default(true) @map("is_active")
   images                    String[] @default([]) /// Array of image URLs / paths
   createdAt                 DateTime @default(now()) @map("created_at")

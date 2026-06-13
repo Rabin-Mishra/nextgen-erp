@@ -237,13 +237,19 @@ export async function createInventoryItem(data: CreateInventoryItemInput, userId
     reservedQty: Number(result.stock.reservedQty.toString()),
     minStockLevel: result.product.minStockLevel,
     reorderLevel: result.product.reorderLevel,
-    status: needsReorder(Number(result.stock.quantity.toString()), result.product.reorderLevel) ? 'reorder' : 'ok',
+    status: needsReorder(Number(result.stock.quantity.toString()), Number(result.product.reorderLevel.toString())) ? 'reorder' : 'ok',
     lastUpdated: result.stock.lastUpdated.toISOString(),
   });
 }
 
-export async function adjustInventoryQuantity(stockId: string, adjustment: number, userId: string) {
-  const parsed = adjustInventoryQuantitySchema.parse({ stockId, adjustment });
+export async function adjustInventoryQuantity(
+  stockId: string,
+  adjustment: number,
+  userId: string,
+  newReorderLevel?: number,
+  notes?: string
+) {
+  const parsed = adjustInventoryQuantitySchema.parse({ stockId, adjustment, newReorderLevel, notes });
   const db = await getDb();
   const activeUserId = await resolveUserId(db, userId);
 
@@ -262,27 +268,39 @@ export async function adjustInventoryQuantity(stockId: string, adjustment: numbe
   }
 
   const result = await db.$transaction(async (tx) => {
-    const updated = await tx.inventoryStock.update({
-      where: { id: existingStock.id },
-      data: { quantity: updatedQuantity },
-    });
+    let updated = existingStock;
 
-    const transaction = await tx.stockTransaction.create({
-      data: {
-        type: parsed.adjustment > 0 ? StockTransactionType.ADJUSTMENT_IN : StockTransactionType.ADJUSTMENT_OUT,
-        productId: existingStock.productId,
-        warehouseId: existingStock.warehouseId,
-        quantity: parsed.adjustment,
-        unitCost: new Decimal(0),
-        referenceType: "INVENTORY_ADJUSTMENT",
-        referenceId: existingStock.id,
-        notes: parsed.notes,
-        userId: activeUserId,
-        transactionUnit: existingStock.product.unit,
-        conversionFactor: new Decimal(1),
-        originalQty: new Decimal(parsed.adjustment),
-      },
-    });
+    if (parsed.adjustment !== 0) {
+      updated = await tx.inventoryStock.update({
+        where: { id: existingStock.id },
+        data: { quantity: updatedQuantity },
+        include: { product: true },
+      });
+
+      await tx.stockTransaction.create({
+        data: {
+          type: parsed.adjustment > 0 ? StockTransactionType.ADJUSTMENT_IN : StockTransactionType.ADJUSTMENT_OUT,
+          productId: existingStock.productId,
+          warehouseId: existingStock.warehouseId,
+          quantity: parsed.adjustment,
+          unitCost: new Decimal(0),
+          referenceType: "INVENTORY_ADJUSTMENT",
+          referenceId: existingStock.id,
+          notes: parsed.notes,
+          userId: activeUserId,
+          transactionUnit: existingStock.product.unit,
+          conversionFactor: new Decimal(1),
+          originalQty: new Decimal(parsed.adjustment),
+        },
+      });
+    }
+
+    if (parsed.newReorderLevel !== undefined) {
+      await tx.product.update({
+        where: { id: existingStock.productId },
+        data: { reorderLevel: new Decimal(parsed.newReorderLevel) as any },
+      });
+    }
 
     await tx.auditLog.create({
       data: {
@@ -293,10 +311,12 @@ export async function adjustInventoryQuantity(stockId: string, adjustment: numbe
         oldValues: {
           quantity: existingStock.quantity,
           reservedQty: existingStock.reservedQty,
+          reorderLevel: existingStock.product.reorderLevel,
         },
         newValues: {
-          quantity: updated.quantity,
-          reservedQty: updated.reservedQty,
+          quantity: parsed.adjustment !== 0 ? updated.quantity : existingStock.quantity,
+          reservedQty: existingStock.reservedQty,
+          reorderLevel: parsed.newReorderLevel !== undefined ? parsed.newReorderLevel : existingStock.product.reorderLevel,
         },
       },
     });
@@ -305,6 +325,8 @@ export async function adjustInventoryQuantity(stockId: string, adjustment: numbe
   }, {
     timeout: 15000,
   });
+
+  revalidatePath("/inventory");
 
   return {
     id: result.id,

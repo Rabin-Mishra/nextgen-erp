@@ -48,7 +48,7 @@ export function InventoryTable({ items }: InventoryTableProps) {
       accessorKey: "productCode",
       header: "Product",
       cell: ({ row }) => (
-        <div className="space-y-1">
+        <div className="space-y-1 whitespace-normal min-w-[200px] max-w-[340px]">
           <div className="text-sm font-medium text-zinc-900 dark:text-zinc-50">{`${row.original.productCode} · ${row.original.name}`}</div>
           <div className="text-xs text-zinc-500 dark:text-zinc-400">{row.original.category ?? "Uncategorized"}</div>
         </div>

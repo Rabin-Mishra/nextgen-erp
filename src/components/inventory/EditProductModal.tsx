@@ -302,8 +302,9 @@ export function EditProductModal({ productId, open, onOpenChange }: EditProductM
                   <Input
                     id="edit-reorderLevel"
                     type="number"
+                    step="any"
                     value={form.reorderLevel}
-                    onChange={(e) => update("reorderLevel", Math.max(0, Number(e.target.value)))}
+                    onChange={(e) => update("reorderLevel", Math.max(0, parseFloat(e.target.value) || 0))}
                     className="h-10 rounded-xl border-zinc-200 dark:border-zinc-800"
                     disabled={loading}
                   />
