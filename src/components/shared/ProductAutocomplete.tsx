@@ -154,8 +154,10 @@ export function ProductAutocomplete({
   const handleSelect = (productId: string) => {
     onChange(productId);
     setIsOpen(false);
-    setIsFocused(false);
-    inputRef.current?.blur();
+    const prod = products.find((p) => p.id === productId);
+    const text = prod ? `[${prod.code}] ${prod.name}` : "";
+    setSearchQuery(text);
+    setIsFocused(true);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -217,6 +219,11 @@ export function ProductAutocomplete({
             setHighlightedIndex(0);
           }}
           onFocus={handleFocus}
+          onBlur={() => {
+            setIsFocused(false);
+            setIsOpen(false);
+            setSearchQuery(displayValue);
+          }}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
           className={cn(

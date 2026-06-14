@@ -397,14 +397,15 @@ export function NewPurchaseOrderForm({ userId }: NewPurchaseOrderFormProps) {
                           </label>
                           <Input
                             type="number"
+                            step="any"
                             placeholder="0"
                             value={item.quantity}
-                            min={1}
+                            min={0.0001}
                             onChange={(e) =>
                               updateItem(item.id, {
                                 quantity: Math.max(
-                                  1,
-                                  parseInt(e.target.value) || 0,
+                                  0.0001,
+                                  parseFloat(e.target.value) || 0,
                                 ),
                               })
                             }
