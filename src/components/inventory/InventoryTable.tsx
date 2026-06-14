@@ -7,9 +7,8 @@ import type { InventoryItemSchema } from "@/modules/inventory/types";
 import { Button } from "../ui/button";
 import AdjustStockModal from "./AdjustStockModal";
 import EditProductModal from "./EditProductModal";
-import { useState, useTransition } from "react";
-import PaginationControls from './InventoryTableControls';
-import { useRouter } from 'next/navigation';
+import { useState, useTransition, useEffect } from "react";
+import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { deleteInventoryProduct } from "@/modules/inventory/actions";
 import { toast } from "sonner";
 import { Trash2 } from "lucide-react";
@@ -17,13 +16,62 @@ import { formatUomDisplay } from "@/lib/uom";
 
 interface InventoryTableProps {
   items: InventoryItemSchema[];
+  pagination: {
+    page: number;
+    pageSize: number;
+    total: number;
+  };
+  searchQuery: string;
 }
 
-export function InventoryTable({ items }: InventoryTableProps) {
+export function InventoryTable({ items, pagination, searchQuery }: InventoryTableProps) {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
   const [selectedStockId, setSelectedStockId] = useState<string | null>(null);
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
+
+  const [localSearch, setLocalSearch] = useState(searchQuery);
+
+  // Sync local search state with searchQuery prop when it changes
+  useEffect(() => {
+    setLocalSearch(searchQuery);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    const urlSearch = searchParams.get("search") ?? "";
+    // If the local search matches the search in URL, do nothing to prevent reset loops on page changes
+    if (localSearch === urlSearch) {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      const current = new URLSearchParams(Array.from(searchParams.entries()));
+      if (localSearch) {
+        current.set("search", localSearch);
+      } else {
+        current.delete("search");
+      }
+      current.set("page", "1"); // reset to page 1 on search
+      router.push(`${pathname}?${current.toString()}`);
+    }, 350);
+
+    return () => clearTimeout(timer);
+  }, [localSearch, pathname, router, searchParams]);
+
+  const handlePageChange = (pageIndex: number) => {
+    const current = new URLSearchParams(Array.from(searchParams.entries()));
+    current.set("page", String(pageIndex + 1));
+    router.push(`${pathname}?${current.toString()}`);
+  };
+
+  const tablePagination = {
+    pageIndex: pagination.page - 1,
+    pageSize: pagination.pageSize,
+    pageCount: Math.ceil(pagination.total / pagination.pageSize),
+    totalItems: pagination.total,
+  };
 
   const handleDeleteProduct = (productId: string, productName: string) => {
     if (!confirm(`Are you sure you want to delete "${productName}"? This will permanently erase this product record.`)) {
@@ -168,7 +216,10 @@ export function InventoryTable({ items }: InventoryTableProps) {
         columns={columns}
         data={items}
         searchPlaceholder="Search products, brands, warehouses..."
-        searchColumnId="productCode"
+        searchValue={localSearch}
+        onSearchChange={setLocalSearch}
+        pagination={tablePagination}
+        onPageChange={handlePageChange}
       />
 
       <div className="flex items-center justify-between mt-4">

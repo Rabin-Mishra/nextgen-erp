@@ -25,6 +25,8 @@ export async function fetchInventoryItems(opts: FetchInventoryOptions = {}) {
     where.OR = [
       { product: { name: { contains: search, mode: 'insensitive' } } },
       { product: { code: { contains: search, mode: 'insensitive' } } },
+      { product: { brand: { name: { contains: search, mode: 'insensitive' } } } },
+      { warehouse: { name: { contains: search, mode: 'insensitive' } } },
     ];
   }
 

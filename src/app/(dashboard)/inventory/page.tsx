@@ -16,21 +16,24 @@ import CategoriesTab from "@/components/inventory/CategoriesTab";
 import BrandsTab from "@/components/inventory/BrandsTab";
 
 type InventoryPageProps = {
-  searchParams?: Promise<{ tab?: string }>;
+  searchParams?: Promise<{ tab?: string; search?: string; page?: string }>;
 };
 
 export default async function InventoryPage({ searchParams }: InventoryPageProps) {
   const params = await searchParams;
   const tab = params?.tab ?? "stock";
+  const search = params?.search ?? "";
+  const page = parseInt(params?.page ?? "1") || 1;
 
   const [itemsResp, summary, alerts, categories, brands] = await Promise.all([
-    fetchInventoryItems(),
+    fetchInventoryItems({ page, search, pageSize: 25 }),
     fetchStockSummary(),
     fetchInventoryAlerts(),
     fetchCategories(),
     fetchBrands(),
   ]);
   const items = itemsResp?.data ?? [];
+  const pagination = itemsResp?.pagination ?? { page: 1, pageSize: 25, total: 0 };
 
   const tabs = [
     { id: "stock", label: "Stock Levels" },
@@ -127,7 +130,7 @@ export default async function InventoryPage({ searchParams }: InventoryPageProps
               <AddProductModal />
               <AdjustStockModal stocks={items} />
             </div>
-            <InventoryTable items={items} />
+            <InventoryTable items={items} pagination={pagination} searchQuery={search} />
           </section>
         </>
       )}

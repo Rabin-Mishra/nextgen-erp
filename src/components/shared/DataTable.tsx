@@ -39,6 +39,8 @@ interface DataTableProps<TData, TValue> {
   onExport?: () => void;
   searchPlaceholder?: string;
   searchColumnId?: string;
+  searchValue?: string;
+  onSearchChange?: (value: string) => void;
 }
 
 export function DataTable<TData, TValue>({
@@ -50,6 +52,8 @@ export function DataTable<TData, TValue>({
   onExport,
   searchPlaceholder = "Search...",
   searchColumnId,
+  searchValue,
+  onSearchChange,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
@@ -73,14 +77,18 @@ export function DataTable<TData, TValue>({
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
-    if (searchColumnId) {
+    if (onSearchChange) {
+      onSearchChange(value);
+    } else if (searchColumnId) {
       table.getColumn(searchColumnId)?.setFilterValue(value);
     } else {
       setGlobalFilter(value);
     }
   };
 
-  const currentSearchValue = searchColumnId
+  const currentSearchValue = onSearchChange
+    ? searchValue ?? ""
+    : searchColumnId
     ? (table.getColumn(searchColumnId)?.getFilterValue() as string) ?? ""
     : globalFilter;
 
