@@ -206,8 +206,50 @@ export function ProductAutocomplete({
       <div className="relative">
         <Search
           size={14}
-          className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 dark:text-zinc-500 pointer-events-none"
+          className={cn(
+            "absolute left-3 text-zinc-400 dark:text-zinc-500 pointer-events-none z-10",
+            (!isFocused && selectedProduct) ? "top-3" : "top-1/2 -translate-y-1/2"
+          )}
         />
+        {!isFocused && selectedProduct && (
+          <div
+            onClick={() => {
+              if (disabled) return;
+              setIsFocused(true);
+              setIsOpen(true);
+              setTimeout(() => {
+                inputRef.current?.focus();
+                inputRef.current?.select();
+              }, 0);
+            }}
+            tabIndex={disabled ? undefined : 0}
+            onKeyDown={(e) => {
+              if (disabled) return;
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                setIsFocused(true);
+                setIsOpen(true);
+                setTimeout(() => {
+                  inputRef.current?.focus();
+                  inputRef.current?.select();
+                }, 0);
+              }
+            }}
+            className={cn(
+              "w-full min-h-[2.25rem] h-auto rounded-md border border-zinc-350 dark:border-zinc-800 bg-white dark:bg-zinc-950 pl-9 pr-16 py-1.5 text-xs text-zinc-900 dark:text-zinc-100 shadow-sm cursor-pointer whitespace-normal break-words flex items-center leading-relaxed transition-all focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500",
+              disabled && "bg-zinc-50 dark:bg-zinc-900 text-zinc-400 cursor-not-allowed border-zinc-200 dark:border-zinc-850"
+            )}
+          >
+            <div className="flex items-start gap-1.5 py-0.5">
+              <span className="shrink-0 mt-0.5 text-[10px] bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-850 text-zinc-500 dark:text-zinc-400 px-1.5 py-0.5 rounded font-mono font-bold leading-none">
+                {selectedProduct.code}
+              </span>
+              <span className="text-zinc-800 dark:text-zinc-200 font-medium">
+                {selectedProduct.name}
+              </span>
+            </div>
+          </div>
+        )}
         <input
           ref={inputRef}
           type="text"
@@ -228,10 +270,11 @@ export function ProductAutocomplete({
           placeholder={placeholder}
           className={cn(
             "w-full h-9 rounded-md border border-zinc-350 dark:border-zinc-800 bg-white dark:bg-zinc-950 pl-9 pr-16 text-xs text-zinc-900 dark:text-zinc-100 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all",
-            disabled && "bg-zinc-50 dark:bg-zinc-900 text-zinc-400 cursor-not-allowed border-zinc-200 dark:border-zinc-850"
+            disabled && "bg-zinc-50 dark:bg-zinc-900 text-zinc-400 cursor-not-allowed border-zinc-200 dark:border-zinc-850",
+            (!isFocused && selectedProduct) && "sr-only"
           )}
         />
-        <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
+        <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1 z-10">
           {value && !disabled && (
             <button
               type="button"
@@ -256,7 +299,7 @@ export function ProductAutocomplete({
       {isOpen && matches.length > 0 && (
         <div
           ref={dropdownRef}
-          className="absolute top-full left-0 z-50 w-full mt-1 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg shadow-xl max-h-60 overflow-y-auto py-1 scrollbar-thin scrollbar-thumb-zinc-200 dark:scrollbar-thumb-zinc-800"
+          className="absolute top-full left-0 z-50 w-full min-w-[320px] md:min-w-[480px] max-w-[90vw] mt-1 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg shadow-xl max-h-60 overflow-y-auto py-1 scrollbar-thin scrollbar-thumb-zinc-200 dark:scrollbar-thumb-zinc-800"
         >
           {renderedMatches.map((item, index) => {
             const isSelected = item.product.id === value;
@@ -278,16 +321,16 @@ export function ProductAutocomplete({
                   isSelected && "text-blue-600 dark:text-blue-400 font-medium"
                 )}
               >
-                <div className="flex items-center gap-2 truncate">
-                  <span className="shrink-0 text-[10px] bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-850 text-zinc-500 dark:text-zinc-400 px-1.5 py-0.5 rounded font-mono font-bold">
+                <div className="flex items-start gap-2 py-0.5 mr-2">
+                  <span className="shrink-0 mt-0.5 text-[10px] bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-850 text-zinc-500 dark:text-zinc-400 px-1.5 py-0.5 rounded font-mono font-bold leading-none">
                     {item.product.code}
                   </span>
-                  <span className="truncate text-zinc-800 dark:text-zinc-200 font-medium">
+                  <span className="whitespace-normal break-words text-zinc-800 dark:text-zinc-200 font-medium leading-relaxed text-left">
                     {item.product.name}
                   </span>
                 </div>
                 {isSelected && (
-                  <Check size={12} className="shrink-0 text-blue-600 dark:text-blue-400 ml-2" />
+                  <Check size={12} className="shrink-0 text-blue-600 dark:text-blue-400 ml-auto" />
                 )}
               </div>
             );

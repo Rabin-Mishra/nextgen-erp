@@ -332,7 +332,7 @@ export function CreateInvoiceForm({ customers, products, projects, warehouses }:
                         const basePrice = priceForType(product, invoiceType);
 
                         return (
-                          <div key={item.id} className="grid gap-3 rounded-lg border p-3 lg:grid-cols-[1.5fr_1fr_80px_90px_90px_110px_90px_100px_auto] lg:items-end">
+                          <div key={item.id} className="grid gap-3 rounded-lg border p-3 lg:grid-cols-[2.25fr_1fr_80px_90px_90px_110px_90px_100px_auto] lg:items-end">
                             <div>
                               <label className="text-xs font-medium text-zinc-500">Product</label>
                               <ProductAutocomplete
