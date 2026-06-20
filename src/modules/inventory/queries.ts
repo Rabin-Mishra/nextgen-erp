@@ -151,30 +151,70 @@ export async function fetchInventoryAlerts() {
   return serializeForClient(alerts);
 }
 
-export async function fetchCategories() {
+export async function fetchCategories(opts: { page?: number; pageSize?: number; search?: string } = {}) {
+  const { page = 1, pageSize = 10, search = "" } = opts;
   const db = await getDb();
-  const categories = await db.category.findMany({
-    include: {
-      _count: {
-        select: { products: true },
+
+  const where: any = {};
+  if (search) {
+    where.OR = [
+      { name: { contains: search, mode: "insensitive" } },
+      { description: { contains: search, mode: "insensitive" } },
+    ];
+  }
+
+  const [categories, total] = await Promise.all([
+    db.category.findMany({
+      where,
+      include: {
+        _count: {
+          select: { products: true },
+        },
       },
-    },
-    orderBy: { name: "asc" },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+      orderBy: { name: "asc" },
+    }),
+    db.category.count({ where }),
+  ]);
+
+  return serializeForClient({
+    data: categories,
+    pagination: { page, pageSize, total },
   });
-  return serializeForClient(categories);
 }
 
-export async function fetchBrands() {
+export async function fetchBrands(opts: { page?: number; pageSize?: number; search?: string } = {}) {
+  const { page = 1, pageSize = 10, search = "" } = opts;
   const db = await getDb();
-  const brands = await db.brand.findMany({
-    include: {
-      _count: {
-        select: { products: true },
+
+  const where: any = {};
+  if (search) {
+    where.OR = [
+      { name: { contains: search, mode: "insensitive" } },
+      { description: { contains: search, mode: "insensitive" } },
+    ];
+  }
+
+  const [brands, total] = await Promise.all([
+    db.brand.findMany({
+      where,
+      include: {
+        _count: {
+          select: { products: true },
+        },
       },
-    },
-    orderBy: { name: "asc" },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+      orderBy: { name: "asc" },
+    }),
+    db.brand.count({ where }),
+  ]);
+
+  return serializeForClient({
+    data: brands,
+    pagination: { page, pageSize, total },
   });
-  return serializeForClient(brands);
 }
 
 export default fetchInventoryItems;

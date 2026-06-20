@@ -25,15 +25,21 @@ export default async function InventoryPage({ searchParams }: InventoryPageProps
   const search = params?.search ?? "";
   const page = parseInt(params?.page ?? "1") || 1;
 
-  const [itemsResp, summary, alerts, categories, brands] = await Promise.all([
-    fetchInventoryItems({ page, search, pageSize: 25 }),
+  const [itemsResp, summary, alerts, categoriesResp, brandsResp] = await Promise.all([
+    fetchInventoryItems(tab === "stock" ? { page, search, pageSize: 25 } : { page: 1, pageSize: 25 }),
     fetchStockSummary(),
     fetchInventoryAlerts(),
-    fetchCategories(),
-    fetchBrands(),
+    fetchCategories(tab === "categories" ? { page, search, pageSize: 10 } : { page: 1, pageSize: 10 }),
+    fetchBrands(tab === "brands" ? { page, search, pageSize: 10 } : { page: 1, pageSize: 10 }),
   ]);
   const items = itemsResp?.data ?? [];
   const pagination = itemsResp?.pagination ?? { page: 1, pageSize: 25, total: 0 };
+
+  const categories = categoriesResp?.data ?? [];
+  const categoriesPagination = categoriesResp?.pagination ?? { page: 1, pageSize: 10, total: 0 };
+
+  const brands = brandsResp?.data ?? [];
+  const brandsPagination = brandsResp?.pagination ?? { page: 1, pageSize: 10, total: 0 };
 
   const tabs = [
     { id: "stock", label: "Stock Levels" },
@@ -143,7 +149,11 @@ export default async function InventoryPage({ searchParams }: InventoryPageProps
               Manage inventory classification categories and product tracking buckets.
             </p>
           </div>
-          <CategoriesTab initialCategories={categories as any} />
+          <CategoriesTab
+            initialCategories={categories as any}
+            pagination={categoriesPagination}
+            searchQuery={tab === "categories" ? search : ""}
+          />
         </section>
       )}
 
@@ -155,7 +165,11 @@ export default async function InventoryPage({ searchParams }: InventoryPageProps
               Manage manufacturers, paint brands, and supply brands in stock.
             </p>
           </div>
-          <BrandsTab initialBrands={brands as any} />
+          <BrandsTab
+            initialBrands={brands as any}
+            pagination={brandsPagination}
+            searchQuery={tab === "brands" ? search : ""}
+          />
         </section>
       )}
     </div>

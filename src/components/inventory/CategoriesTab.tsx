@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
@@ -9,7 +9,7 @@ import { Input } from "../ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "../ui/dialog";
 import { toast } from "sonner";
 import { deleteCategory, updateCategory } from "@/modules/inventory/actions";
-import { Pencil, Trash2, Plus, Search, Folder, AlertTriangle, Loader2 } from "lucide-react";
+import { Pencil, Trash2, Plus, Search, Folder, AlertTriangle, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
 import CategoryModal from "./CategoryModal";
 
 interface CategoryData {
@@ -25,12 +25,20 @@ interface CategoryData {
 
 interface CategoriesTabProps {
   initialCategories: CategoryData[];
+  pagination: {
+    page: number;
+    pageSize: number;
+    total: number;
+  };
+  searchQuery: string;
 }
 
-export function CategoriesTab({ initialCategories }: CategoriesTabProps) {
+export function CategoriesTab({ initialCategories, pagination, searchQuery }: CategoriesTabProps) {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [categories, setCategories] = useState<CategoryData[]>(initialCategories);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(searchQuery);
   
   // Modals state
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -45,6 +53,38 @@ export function CategoriesTab({ initialCategories }: CategoriesTabProps) {
   useEffect(() => {
     setCategories(initialCategories);
   }, [initialCategories]);
+
+  useEffect(() => {
+    setSearch(searchQuery);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    const urlSearch = searchParams.get("search") ?? "";
+    if (search === urlSearch) {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      const current = new URLSearchParams(Array.from(searchParams.entries()));
+      if (search) {
+        current.set("search", search);
+      } else {
+        current.delete("search");
+      }
+      current.set("page", "1"); // reset to page 1 on search
+      router.push(`${pathname}?${current.toString()}`);
+    }, 350);
+
+    return () => clearTimeout(timer);
+  }, [search, pathname, router, searchParams]);
+
+  const handlePageChange = (newPage: number) => {
+    const current = new URLSearchParams(Array.from(searchParams.entries()));
+    current.set("page", String(newPage));
+    router.push(`${pathname}?${current.toString()}`);
+  };
+
+  const pageCount = Math.ceil(pagination.total / pagination.pageSize);
 
   // Refresh data by reloading router
   const handleSuccess = async () => {
@@ -103,13 +143,8 @@ export function CategoriesTab({ initialCategories }: CategoriesTabProps) {
     }
   };
 
-  // Filtered categories list
-  const filteredCategories = categories.filter((c) => {
-    const matchesSearch =
-      c.name.toLowerCase().includes(search.toLowerCase()) ||
-      (c.description || "").toLowerCase().includes(search.toLowerCase());
-    return matchesSearch;
-  });
+  // Render server-side filtered categories directly
+  const filteredCategories = categories;
 
   return (
     <div className="space-y-4">
@@ -229,6 +264,33 @@ export function CategoriesTab({ initialCategories }: CategoriesTabProps) {
             )}
           </TableBody>
         </Table>
+      </div>
+
+      {/* Pagination Controls */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 py-2 border-t border-zinc-150 dark:border-zinc-850 mt-4">
+        <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
+          Showing Page {pagination.page} of {Math.max(1, pageCount)} (Total {pagination.total} records)
+        </p>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handlePageChange(pagination.page - 1)}
+            disabled={pagination.page <= 1}
+            className="h-9 w-9 p-0 border-zinc-200 dark:border-zinc-800 rounded-lg text-zinc-600 dark:text-zinc-400"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handlePageChange(pagination.page + 1)}
+            disabled={pagination.page >= pageCount}
+            className="h-9 w-9 p-0 border-zinc-200 dark:border-zinc-800 rounded-lg text-zinc-600 dark:text-zinc-400"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
 
       {/* Unified Add/Edit Category Modal */}
