@@ -221,7 +221,7 @@ export async function getActiveProjectsSummary() {
       client: { select: { name: true } },
       salesInvoices: {
         where: { status: { not: "CANCELLED" } },
-        select: { subtotal: true, discountAmount: true }
+        select: { id: true, totalAmount: true }
       }
     }
   });
@@ -231,13 +231,21 @@ export async function getActiveProjectsSummary() {
   for (const prj of projects) {
     let totalBilled = new Decimal(0);
     for (const inv of prj.salesInvoices) {
-      totalBilled = totalBilled.plus(new Decimal(inv.subtotal).minus(inv.discountAmount));
+      totalBilled = totalBilled.plus(new Decimal(inv.totalAmount));
     }
 
-    const issues = await db.stockTransaction.findMany({
-      where: { referenceType: "PROJECT", referenceId: prj.id, type: "PROJECT_ISSUE" },
-      select: { quantity: true, unitCost: true }
-    });
+    const invoiceIds = prj.salesInvoices.map((inv) => inv.id);
+
+    const issues = invoiceIds.length
+      ? await db.stockTransaction.findMany({
+          where: {
+            referenceType: "SALES_INVOICE",
+            referenceId: { in: invoiceIds },
+            type: "PROJECT_ISSUE"
+          },
+          select: { quantity: true, unitCost: true }
+        })
+      : [];
 
     let materialCost = new Decimal(0);
     for (const is of issues) {
@@ -248,8 +256,8 @@ export async function getActiveProjectsSummary() {
     const budget = new Decimal(prj.budgetAmount || 1);
     const contract = new Decimal(prj.contractAmount || 1);
     
-    const profit = totalBilled.minus(materialCost);
-    const margin = totalBilled.greaterThan(0) ? profit.div(totalBilled).times(100).toNumber() : 0;
+    const netProfit = contract.minus(totalBilled);
+    const margin = contract.greaterThan(0) ? netProfit.div(contract).times(100).toNumber() : 0;
 
     summary.push({
       id: prj.id,
