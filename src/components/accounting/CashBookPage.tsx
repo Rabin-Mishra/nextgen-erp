@@ -6,10 +6,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataTable } from "@/components/shared/DataTable";
 import { NPRAmount } from "@/components/shared/NPRAmount";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
-import { fetchCashBookEntriesAction, fetchCashBookSummaryAction } from "@/modules/accounting/actions";
+import { fetchCashBookEntriesAction, fetchCashBookSummaryAction, deleteCashBookEntryAction } from "@/modules/accounting/actions";
 import { AddCashEntryModal } from "./AddCashEntryModal";
+import { EditCashEntryModal } from "./EditCashEntryModal";
 import { ColumnDef } from "@tanstack/react-table";
-import { Wallet, Coins, Building, QrCode, Plus, Calendar, RefreshCw } from "lucide-react";
+import { Wallet, Coins, Building, QrCode, Plus, Calendar, RefreshCw, Pencil, Trash2, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
@@ -47,6 +48,25 @@ export function CashBookPage() {
   const [entries, setEntries] = useState<CashEntryRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingEntry, setEditingEntry] = useState<CashEntryRow | null>(null);
+
+  const handleDelete = async (id: string) => {
+    if (!window.confirm("Are you sure you want to delete this cashbook entry? This will also remove any linked ledger entry and recalculate party balances.")) {
+      return;
+    }
+    try {
+      const res = await deleteCashBookEntryAction(id);
+      if (res.success) {
+        toast.success("Cash transaction deleted successfully.");
+        loadData();
+      } else {
+        toast.error(`Deletion failed: ${res.error}`);
+      }
+    } catch (err: any) {
+      toast.error(`Error deleting transaction: ${err.message}`);
+    }
+  };
 
   const loadData = async () => {
     setIsLoading(true);
@@ -172,6 +192,52 @@ export function CashBookPage() {
         </span>
       ),
     },
+    {
+      id: "actions",
+      header: "Actions",
+      cell: ({ row }) => {
+        const entry = row.original;
+        const isManual = !entry.referenceType || entry.referenceType === "CASH_BOOK";
+        
+        if (isManual) {
+          return (
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setEditingEntry(entry);
+                  setIsEditModalOpen(true);
+                }}
+                className="h-7 w-7 p-0 border-zinc-200 text-zinc-700 hover:bg-zinc-50 dark:border-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-900"
+                title="Edit Transaction"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDelete(entry.id);
+                }}
+                className="h-7 w-7 p-0 border-red-200 text-red-650 hover:bg-red-50 hover:text-red-700 dark:border-red-900/50 dark:text-red-400 dark:hover:bg-red-950/20"
+                title="Delete Transaction"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          );
+        }
+        
+        return (
+          <div className="flex items-center justify-center h-7 w-7 text-zinc-450 dark:text-zinc-600" title={`System-generated transaction (${entry.referenceType}). Manage from original module.`}>
+            <Lock className="h-3.5 w-3.5" />
+          </div>
+        );
+      },
+    },
   ];
 
   return (
@@ -296,6 +362,14 @@ export function CashBookPage() {
       <AddCashEntryModal
         open={isModalOpen}
         onOpenChange={setIsModalOpen}
+        onSuccess={loadData}
+      />
+
+      {/* Transaction editing Modal */}
+      <EditCashEntryModal
+        open={isEditModalOpen}
+        onOpenChange={setIsEditModalOpen}
+        entry={editingEntry}
         onSuccess={loadData}
       />
     </div>

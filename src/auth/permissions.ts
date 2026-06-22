@@ -1,4 +1,5 @@
 import type { Role } from "../lib/constants";
+import { ROLE_LABELS } from "../lib/constants";
 
 export type Action = "view" | "create" | "edit" | "delete" | "export" | "approve";
 
@@ -37,7 +38,7 @@ const PERMISSIONS: Record<Role, Partial<Record<Module, Action[]>>> = {
     ledger: ["view", "create", "edit", "delete", "export", "approve"],
     cashbook: ["view", "create", "edit", "delete", "export", "approve"],
     reports: ["view", "create", "edit", "delete", "export", "approve"],
-    users: ["view", "create", "edit", "delete", "export", "approve"],
+    users: ["view"], // Owner only has view-only access to user management
     expenses: ["view", "create", "edit", "delete", "export", "approve"],
   },
   MANAGER: {
@@ -46,7 +47,7 @@ const PERMISSIONS: Record<Role, Partial<Record<Module, Action[]>>> = {
     purchase: ["view", "create", "edit", "delete", "export", "approve"],
     sales: ["view", "create", "edit", "delete", "export", "approve"],
     projects: ["view", "create", "edit", "delete", "export", "approve"],
-    ledger: ["view", "create", "edit", "delete", "export", "approve"],
+    ledger: ["view"], // Managers can view ledger but not reverse/edit it
     cashbook: ["view", "create", "edit", "delete", "export", "approve"],
     reports: ["view", "create", "edit", "delete", "export", "approve"],
     users: [], // Managers do not manage users
@@ -55,11 +56,11 @@ const PERMISSIONS: Record<Role, Partial<Record<Module, Action[]>>> = {
   SALES_STAFF: {
     dashboard: ["view"],
     sales: ["view", "create", "edit", "delete", "export", "approve"],
-    cashbook: ["view", "create", "edit", "delete", "export", "approve"],
-    inventory: ["view"],
-    ledger: ["view"],
-    projects: ["view"],
-    reports: ["view"], // SALES_STAFF can only view sales reports; routing filters this
+    cashbook: ["view", "create", "edit"], // LTD access: view, create, edit cashbook entries (no delete/approve)
+    inventory: ["view"], // LTD access: view inventory
+    ledger: [], // NO access
+    projects: ["view", "create", "edit"], // LTD access: view, create, edit projects
+    reports: [], // NO access
     purchase: [],
     users: [],
     expenses: ["view"],
@@ -68,11 +69,11 @@ const PERMISSIONS: Record<Role, Partial<Record<Module, Action[]>>> = {
     dashboard: ["view"],
     purchase: ["view", "create", "edit", "delete", "export", "approve"],
     inventory: ["view", "create", "edit", "delete", "export", "approve"],
-    ledger: ["view"],
-    reports: ["view"], // PURCHASE_STAFF can only view purchase reports; routing filters this
+    ledger: [], // NO access
+    reports: [], // NO access
     sales: [],
-    projects: [],
-    cashbook: [],
+    projects: ["view", "create", "edit"], // LTD access: view, create, edit projects
+    cashbook: ["view", "create", "edit"], // LTD access: view, create, edit cashbook entries
     users: [],
     expenses: ["view"],
   },
@@ -99,3 +100,4 @@ export function hasPermission(role: Role, module: Module, action: Action): boole
   const actions = rolePermissions[module];
   return actions ? actions.includes(action) : false;
 }
+

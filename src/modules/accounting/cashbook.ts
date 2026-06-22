@@ -289,3 +289,225 @@ export async function getDailyCashFlow(month: number, year: number) {
 
   return results;
 }
+
+// 5. HELPER TO RECALCULATE LEDGER BALANCES CHRONOLOGICALLY
+export async function recalculateLedgerBalances(partyType: PartyType, partyId: string, tx: any) {
+  const entries = await tx.ledgerEntry.findMany({
+    where: { partyType, partyId },
+    orderBy: [
+      { entryDate: "asc" },
+      { createdAt: "asc" }
+    ],
+  });
+
+  let runningBalance = new Decimal(0);
+  if (partyType === "CUSTOMER") {
+    const cust = await tx.customer.findUnique({
+      where: { id: partyId },
+      select: { openingBalance: true },
+    });
+    runningBalance = new Decimal(cust?.openingBalance || 0);
+  } else {
+    const supp = await tx.supplier.findUnique({
+      where: { id: partyId },
+      select: { openingBalance: true },
+    });
+    runningBalance = new Decimal(supp?.openingBalance || 0);
+  }
+
+  for (const entry of entries) {
+    const amount = new Decimal(entry.amount);
+    if (partyType === "CUSTOMER") {
+      runningBalance = runningBalance.plus(entry.entryType === "DEBIT" ? amount : amount.negated());
+    } else {
+      runningBalance = runningBalance.plus(entry.entryType === "CREDIT" ? amount : amount.negated());
+    }
+
+    await tx.ledgerEntry.update({
+      where: { id: entry.id },
+      data: { runningBalance },
+    });
+  }
+}
+
+// 6. UPDATE MANUAL CASH BOOK ENTRY WITH LEDGER SYNC
+export async function updateCashEntry(id: string, data: CreateCashEntryData) {
+  const db = await getDb();
+  
+  let actorId = data.createdBy;
+  if (!actorId) {
+    const session = await getCurrentUser();
+    if (!session?.id) throw new Error("Unauthorized");
+    actorId = session.id;
+  }
+
+  return db.$transaction(async (tx) => {
+    const existing = await tx.cashBookEntry.findUnique({
+      where: { id },
+    });
+    if (!existing) throw new Error("Cash book entry not found");
+
+    if (existing.referenceType && existing.referenceType !== "CASH_BOOK") {
+      throw new Error("System-generated transactions cannot be edited directly from the cash book page.");
+    }
+
+    const oldPartyType = existing.partyType;
+    const oldPartyId = existing.partyId;
+
+    const updatedCashEntry = await tx.cashBookEntry.update({
+      where: { id },
+      data: {
+        entryDate: new Date(data.entryDate),
+        type: data.type,
+        amount: new Decimal(data.amount),
+        description: data.description,
+        partyType: data.partyType || null,
+        partyId: data.partyId || null,
+        paymentMethod: data.paymentMethod,
+      },
+    });
+
+    const linkedLedger = await tx.ledgerEntry.findFirst({
+      where: { referenceType: "CASH_BOOK", referenceId: id },
+    });
+
+    const isPartyLinkedNow = data.partyType && data.partyId;
+    const wasPartyLinkedBefore = oldPartyType && oldPartyId;
+
+    if (isPartyLinkedNow) {
+      const ledgerEntryType = data.type === "RECEIVED" ? "CREDIT" : "DEBIT";
+      const ledgerDescription = data.description || `CashBook link - Method: ${data.paymentMethod}`;
+
+      if (wasPartyLinkedBefore && oldPartyType === data.partyType && oldPartyId === data.partyId) {
+        if (linkedLedger) {
+          await tx.ledgerEntry.update({
+            where: { id: linkedLedger.id },
+            data: {
+              entryDate: new Date(data.entryDate),
+              entryType: ledgerEntryType,
+              amount: new Decimal(data.amount),
+              description: ledgerDescription,
+            },
+          });
+        } else {
+          await createLedgerEntry({
+            entryDate: new Date(data.entryDate),
+            partyType: data.partyType!,
+            partyId: data.partyId!,
+            entryType: ledgerEntryType,
+            amount: data.amount,
+            referenceType: "CASH_BOOK",
+            referenceId: id,
+            description: ledgerDescription,
+            channelType: "GENERAL",
+            createdBy: actorId,
+          }, tx);
+        }
+        await recalculateLedgerBalances(data.partyType!, data.partyId!, tx);
+      } else {
+        if (linkedLedger) {
+          await tx.ledgerEntry.delete({ where: { id: linkedLedger.id } });
+        }
+        if (wasPartyLinkedBefore) {
+          await recalculateLedgerBalances(oldPartyType!, oldPartyId!, tx);
+        }
+
+        await createLedgerEntry({
+          entryDate: new Date(data.entryDate),
+          partyType: data.partyType!,
+          partyId: data.partyId!,
+          entryType: ledgerEntryType,
+          amount: data.amount,
+          referenceType: "CASH_BOOK",
+          referenceId: id,
+          description: ledgerDescription,
+          channelType: "GENERAL",
+          createdBy: actorId,
+        }, tx);
+
+        await recalculateLedgerBalances(data.partyType!, data.partyId!, tx);
+      }
+    } else {
+      if (linkedLedger) {
+        await tx.ledgerEntry.delete({ where: { id: linkedLedger.id } });
+      }
+      if (wasPartyLinkedBefore) {
+        await recalculateLedgerBalances(oldPartyType!, oldPartyId!, tx);
+      }
+    }
+
+    await tx.auditLog.create({
+      data: {
+        userId: actorId!,
+        action: "UPDATE",
+        module: "CASHBOOK",
+        recordId: id,
+        oldValues: existing as any,
+        newValues: {
+          id,
+          amount: data.amount.toString(),
+          type: data.type,
+          paymentMethod: data.paymentMethod,
+          partyType: data.partyType,
+          partyId: data.partyId,
+        },
+      },
+    });
+
+    return updatedCashEntry;
+  });
+}
+
+// 7. DELETE MANUAL CASH BOOK ENTRY WITH LEDGER SYNC
+export async function deleteCashEntry(id: string, userId?: string) {
+  const db = await getDb();
+  
+  let actorId = userId;
+  if (!actorId) {
+    const session = await getCurrentUser();
+    if (!session?.id) throw new Error("Unauthorized");
+    actorId = session.id;
+  }
+
+  return db.$transaction(async (tx) => {
+    const existing = await tx.cashBookEntry.findUnique({
+      where: { id },
+    });
+    if (!existing) throw new Error("Cash book entry not found");
+
+    if (existing.referenceType && existing.referenceType !== "CASH_BOOK") {
+      throw new Error("System-generated transactions cannot be deleted directly from the cash book page.");
+    }
+
+    const oldPartyType = existing.partyType;
+    const oldPartyId = existing.partyId;
+
+    await tx.cashBookEntry.delete({
+      where: { id },
+    });
+
+    const linkedLedger = await tx.ledgerEntry.findFirst({
+      where: { referenceType: "CASH_BOOK", referenceId: id },
+    });
+
+    if (linkedLedger) {
+      await tx.ledgerEntry.delete({ where: { id: linkedLedger.id } });
+    }
+
+    if (oldPartyType && oldPartyId) {
+      await recalculateLedgerBalances(oldPartyType, oldPartyId, tx);
+    }
+
+    await tx.auditLog.create({
+      data: {
+        userId: actorId!,
+        action: "DELETE",
+        module: "CASHBOOK",
+        recordId: id,
+        oldValues: existing as any,
+      },
+    });
+
+    return existing;
+  });
+}

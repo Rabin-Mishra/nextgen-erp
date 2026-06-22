@@ -21,8 +21,8 @@ export async function createUserAction(formData: {
       return { success: false, error: "Unauthorized. Please log in." };
     }
 
-    if (sessionUser.role !== "SUPERADMIN" && sessionUser.role !== "OWNER") {
-      return { success: false, error: "Access Denied. Only Super Admins and Business Owners can manage users." };
+    if (sessionUser.role !== "SUPERADMIN") {
+      return { success: false, error: "Access Denied. Only Super Admins can create users." };
     }
 
     if (!formData.name || !formData.email || !formData.role) {
@@ -114,8 +114,8 @@ export async function updateUserAction(
     throw new Error("Unauthorized. Please log in.");
   }
 
-  if (sessionUser.role !== "SUPERADMIN" && sessionUser.role !== "OWNER") {
-    throw new Error("Access Denied. Only Super Admins and Business Owners can manage users.");
+  if (sessionUser.role !== "SUPERADMIN") {
+    throw new Error("Access Denied. Only Super Admins can edit users.");
   }
 
   const db = await getDb();
@@ -181,8 +181,8 @@ export async function deleteUserAction(userId: string) {
       return { success: false, error: "Unauthorized. Please log in." };
     }
 
-    if (sessionUser.role !== "SUPERADMIN" && sessionUser.role !== "OWNER") {
-      return { success: false, error: "Access Denied. Only Super Admins and Business Owners can delete users." };
+    if (sessionUser.role !== "SUPERADMIN") {
+      return { success: false, error: "Access Denied. Only Super Admins can delete users." };
     }
 
     if (sessionUser.id === userId) {

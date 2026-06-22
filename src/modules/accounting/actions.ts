@@ -2,6 +2,7 @@
 
 import { PartyType, CashEntryType, PaymentMode, InvoiceType } from "@/generated/prisma/client";
 import { revalidatePath } from "next/cache";
+import { checkServerPermission } from "@/auth/permissions.server";
 import {
   createLedgerEntry,
   reverseLedgerEntry,
@@ -16,6 +17,8 @@ import {
   getCashBookSummary,
   addCashEntry,
   getDailyCashFlow,
+  updateCashEntry,
+  deleteCashEntry,
 } from "./cashbook";
 import {
   runMonthlyDepreciationForAll,
@@ -73,6 +76,7 @@ export async function addCashBookEntryAction(data: {
   partyId?: string;
   paymentMethod: PaymentMode;
 }) {
+  await checkServerPermission("cashbook", "create");
   try {
     const res = await addCashEntry({
       entryDate: new Date(data.entryDate),
@@ -94,8 +98,60 @@ export async function addCashBookEntryAction(data: {
   }
 }
 
+// 2b. UPDATE CASH BOOK ENTRY SERVER ACTION
+export async function updateCashBookEntryAction(
+  id: string,
+  data: {
+    entryDate: string;
+    type: CashEntryType;
+    amount: number;
+    description?: string;
+    partyType?: PartyType;
+    partyId?: string;
+    paymentMethod: PaymentMode;
+  }
+) {
+  await checkServerPermission("cashbook", "edit");
+  try {
+    const res = await updateCashEntry(id, {
+      entryDate: new Date(data.entryDate),
+      type: data.type,
+      amount: data.amount,
+      description: data.description || "",
+      partyType: data.partyType || null,
+      partyId: data.partyId || null,
+      paymentMethod: data.paymentMethod,
+    });
+    
+    revalidatePath("/cashbook");
+    revalidatePath("/ledger");
+    revalidatePath("/dashboard");
+    return { success: true, entry: res };
+  } catch (error: any) {
+    console.error("Failed to update cash entry:", error);
+    return { success: false, error: error.message || "Failed to update cash entry" };
+  }
+}
+
+// 2c. DELETE CASH BOOK ENTRY SERVER ACTION
+export async function deleteCashBookEntryAction(id: string) {
+  await checkServerPermission("cashbook", "delete");
+  try {
+    const res = await deleteCashEntry(id);
+    
+    revalidatePath("/cashbook");
+    revalidatePath("/ledger");
+    revalidatePath("/dashboard");
+    return { success: true, entry: res };
+  } catch (error: any) {
+    console.error("Failed to delete cash entry:", error);
+    return { success: false, error: error.message || "Failed to delete cash entry" };
+  }
+}
+
 // 3. LEDGER REVERSAL SERVER ACTION
 export async function reverseLedgerEntryAction(originalId: string, reason: string) {
+  await checkServerPermission("ledger", "approve");
   try {
     const res = await reverseLedgerEntry(originalId, reason);
     revalidatePath("/ledger");
@@ -115,6 +171,7 @@ export async function createFixedAssetAction(data: {
   usefulLifeYears: number;
   depreciationMethod: "STRAIGHT_LINE" | "DECLINING_BALANCE";
 }) {
+  await checkServerPermission("ledger", "create");
   try {
     const res = await createFixedAsset(data);
     revalidatePath("/assets");
@@ -126,6 +183,7 @@ export async function createFixedAssetAction(data: {
 }
 
 export async function runDepreciationAction() {
+  await checkServerPermission("ledger", "approve");
   try {
     const res = await runMonthlyDepreciationForAll();
     revalidatePath("/assets");

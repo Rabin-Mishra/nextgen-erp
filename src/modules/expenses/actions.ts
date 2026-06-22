@@ -6,6 +6,7 @@ import Decimal from "decimal.js";
 import { nextCode, serializeForClient } from "@/lib/utils";
 import { getCurrentUser } from "@/auth/session";
 import { createExpenseSchema, type CreateExpenseInput } from "./types";
+import { checkServerPermission } from "@/auth/permissions.server";
 
 async function resolveActiveUserId(db: any, userId?: string): Promise<string> {
   const resolved = userId || (await getCurrentUser())?.id;
@@ -40,6 +41,7 @@ async function resolveActiveUserId(db: any, userId?: string): Promise<string> {
 }
 
 export async function createExpense(data: CreateExpenseInput, userId: string) {
+  await checkServerPermission("expenses", "create");
   const parsed = createExpenseSchema.parse(data);
   const db = await getDb();
   const activeUserId = await resolveActiveUserId(db, userId);
@@ -92,6 +94,7 @@ export async function createExpense(data: CreateExpenseInput, userId: string) {
 }
 
 export async function deleteExpense(id: string, userId: string) {
+  await checkServerPermission("expenses", "delete");
   const db = await getDb();
   const activeUserId = await resolveActiveUserId(db, userId);
 
@@ -124,6 +127,7 @@ export async function deleteExpense(id: string, userId: string) {
 }
 
 export async function updateExpense(id: string, data: CreateExpenseInput, userId: string) {
+  await checkServerPermission("expenses", "edit");
   const parsed = createExpenseSchema.parse(data);
   const db = await getDb();
   const activeUserId = await resolveActiveUserId(db, userId);

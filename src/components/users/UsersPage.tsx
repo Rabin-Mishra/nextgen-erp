@@ -7,7 +7,7 @@ import { DataTable } from "../shared/DataTable";
 import { StatusBadge } from "../shared/StatusBadge";
 import { ColumnDef } from "@tanstack/react-table";
 import { Role, ROLE_LABELS, INVOICE_COLORS } from "../../lib/constants";
-import { Users, UserPlus, ShieldAlert, KeyRound, ShieldCheck, Lock, Activity, Pencil, Trash2 } from "lucide-react";
+import { Users, UserPlus, ShieldAlert, KeyRound, ShieldCheck, Lock, Activity, Pencil, Trash2, CheckCircle2, Eye } from "lucide-react";
 import { Button } from "../ui/button";
 import { AddUserModal } from "./AddUserModal";
 import { EditUserModal } from "./EditUserModal";
@@ -213,8 +213,8 @@ export function UsersPage({ initialUsers, sessionUser }: UsersPageProps) {
       id: "actions",
       header: "Operations",
       cell: ({ row }) => {
-        const canEdit = isSuperAdminOrOwner || row.original.id === sessionUser.id;
-        const canDelete = isSuperAdminOrOwner && row.original.id !== sessionUser.id;
+        const canEdit = isSuperAdmin || row.original.id === sessionUser.id;
+        const canDelete = isSuperAdmin && row.original.id !== sessionUser.id;
         
         if (!canEdit && !canDelete) return null;
         
@@ -355,6 +355,31 @@ export function UsersPage({ initialUsers, sessionUser }: UsersPageProps) {
     };
     return matrix[moduleKey]?.[roleKey] || { text: "NO", style: "bg-zinc-100 text-zinc-450 border border-zinc-200 dark:bg-zinc-900" };
   };
+const ROLE_DESCRIPTIONS: Record<Role, string> = {
+  SUPERADMIN: "Unrestricted root-level command of the entire ERP. Authorized to modify systems configurations, adjust security parameters, override ledger transactions, manage personnel credentials, and inspect compliance audit logs.",
+  OWNER: "Complete operational ownership of business transactions. Authorized to execute sales invoicing, manage inventory, draft purchase orders, approve expenses, and audit financial statements. Strictly restricted from altering personnel roles or deleting historical logs.",
+  MANAGER: "Branch management profile. Authorized for daily operations, stock audits, supplier PO approvals, client invoice logs, and cost configurations. General ledger entries are read-only, and staff directory access is locked.",
+  SALES_STAFF: "Point-of-Sale (POS) and client-facing profile. Authorized for generating retail/wholesale billing invoices, linked project costing, and recording customer receipts. Blocked from supplier databases, general ledger operations, and expense audits.",
+  PURCHASE_STAFF: "Inventory control and supply chain profile. Authorized to create procurement POs, manage vendor logs, register incoming stocks, and update warehouse items. Blocked from client databases, accounts receivables, and analytics reports.",
+  VIEWER: "Read-only compliance audit profile. Allowed to look up stock, inspect invoices, monitor cash boxes, view financial reports, and track dashboards. Completely blocked from recording, editing, or deleting any system transactions.",
+};
+
+  const getMatrixPermissionDetail = (text: string) => {
+    switch (text) {
+      case "FULL":
+        return "Complete control (CRUD) to view, create, update, and delete records inside this module.";
+      case "LTD":
+        return "Task-level write permissions (view, create, edit), but restricted from deletions or administrative configurations.";
+      case "VIEW":
+        return "Strictly read-only access. You can view all listings and reports but cannot write or modify data.";
+      case "NO":
+      default:
+        return "Access completely blocked. This module and its features are hidden from this user role.";
+    }
+  };
+
+  const [selectedRoleTab, setSelectedRoleTab] = useState<Role>("SUPERADMIN");
+  const [matrixViewMode, setMatrixViewMode] = useState<"tabbed" | "grid">("tabbed");
 
   return (
     <div className="space-y-8 animate-fade-in pb-12">
@@ -363,7 +388,7 @@ export function UsersPage({ initialUsers, sessionUser }: UsersPageProps) {
         description="Configure branch personnel logins, map role security privileges, and inspect immutable system audit logs."
         actions={
           <div className="flex items-center gap-3">
-            {isSuperAdminOrOwner && (
+            {isSuperAdmin && (
               <Button
                 onClick={() => setIsAddOpen(true)}
                 className="h-10 px-4 rounded-xl flex items-center gap-2 font-bold shadow-md shadow-primary/20"
@@ -478,70 +503,219 @@ export function UsersPage({ initialUsers, sessionUser }: UsersPageProps) {
 
           {/* Role Permissions Matrix Section */}
           <div className="bg-white dark:bg-zinc-950 border border-zinc-100 dark:border-zinc-800 p-6 rounded-2xl shadow-sm overflow-hidden">
-            <div className="flex flex-col gap-1 mb-6">
-              <div className="flex items-center gap-2">
-                <Lock className="h-5 w-5 text-purple-600" />
-                <h2 className="text-base font-bold text-zinc-900 dark:text-zinc-100">Role Permissions Mapping Matrix</h2>
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 pb-4 border-b border-zinc-100 dark:border-zinc-800">
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center gap-2">
+                  <Lock className="h-5 w-5 text-purple-600" />
+                  <h2 className="text-base font-bold text-zinc-900 dark:text-zinc-100">Role Permissions Mapping Matrix</h2>
+                </div>
+                <p className="text-xs text-zinc-400 font-medium">
+                  Define and verify explicit module authorization and operational boundaries.
+                </p>
               </div>
-              <p className="text-xs text-zinc-400 font-medium pl-7">
-                Compliance reference grid defining explicit module authorization boundaries.
-              </p>
+
+              {/* View toggle */}
+              <div className="flex gap-1 border p-1 rounded-xl bg-zinc-50 dark:bg-zinc-900 dark:border-zinc-850 self-end md:self-auto shrink-0">
+                <Button
+                  size="sm"
+                  variant={matrixViewMode === "tabbed" ? "default" : "ghost"}
+                  onClick={() => setMatrixViewMode("tabbed")}
+                  className="text-xs h-8 px-3 rounded-lg"
+                >
+                  Role Profiles
+                </Button>
+                <Button
+                  size="sm"
+                  variant={matrixViewMode === "grid" ? "default" : "ghost"}
+                  onClick={() => setMatrixViewMode("grid")}
+                  className="text-xs h-8 px-3 rounded-lg"
+                >
+                  Comparison Grid
+                </Button>
+              </div>
             </div>
 
-            {/* Matrix Table Responsive */}
-            <div className="overflow-x-auto rounded-xl border border-zinc-100 dark:border-zinc-900">
-              <table className="w-full text-center border-collapse min-w-[800px]">
-                <thead>
-                  <tr className="bg-zinc-50/60 dark:bg-zinc-900/40 text-zinc-500 text-xs font-bold uppercase tracking-wider border-b border-zinc-100 dark:border-zinc-900">
-                    <th className="py-4 px-6 text-left w-[220px]">Module Operations</th>
-                    {matrixRoles.map((r) => (
-                      <th key={r.key} className="py-4 px-2">
+            {matrixViewMode === "tabbed" ? (
+              <div className="space-y-6">
+                {/* Horizontal tabs list */}
+                <div className="flex gap-1.5 border-b pb-3 dark:border-zinc-850 overflow-x-auto">
+                  {matrixRoles.map((r) => {
+                    const isSelected = selectedRoleTab === r.key;
+                    let tabColor = "border-transparent text-zinc-500 hover:text-zinc-700 hover:border-zinc-200";
+                    if (isSelected) {
+                      switch (r.key) {
+                        case "SUPERADMIN":
+                          tabColor = "border-rose-500 text-rose-600 bg-rose-500/5";
+                          break;
+                        case "OWNER":
+                          tabColor = "border-purple-500 text-purple-600 bg-purple-500/5";
+                          break;
+                        case "MANAGER":
+                          tabColor = "border-blue-500 text-blue-600 bg-blue-500/5";
+                          break;
+                        case "SALES_STAFF":
+                          tabColor = "border-emerald-500 text-emerald-600 bg-emerald-500/5";
+                          break;
+                        case "PURCHASE_STAFF":
+                          tabColor = "border-amber-500 text-amber-600 bg-amber-500/5";
+                          break;
+                        default:
+                          tabColor = "border-zinc-500 text-zinc-650 bg-zinc-500/5 dark:text-zinc-400";
+                          break;
+                      }
+                    }
+                    return (
+                      <button
+                        key={r.key}
+                        onClick={() => setSelectedRoleTab(r.key)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold border-b-2 transition-all whitespace-nowrap ${tabColor}`}
+                      >
                         {r.label}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-zinc-100 dark:divide-zinc-900 text-zinc-800 dark:text-zinc-300 text-xs font-semibold">
-                  {matrixModules.map((m) => (
-                    <tr key={m.key} className="hover:bg-zinc-50/30 dark:hover:bg-zinc-900/10">
-                      <td className="py-3.5 px-6 text-left font-bold text-zinc-700 dark:text-zinc-300">
-                        {m.name}
-                      </td>
-                      {matrixRoles.map((r) => {
-                        const cell = getMatrixCell(m.key, r.key);
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Profile detail card */}
+                <div className="grid gap-6 md:grid-cols-3">
+                  {/* Column 1: Info Card */}
+                  <div className="bg-zinc-50/50 dark:bg-zinc-900/10 border dark:border-zinc-800 p-5 rounded-2xl flex flex-col gap-4">
+                    <div>
+                      <span className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest block mb-1">
+                        Selected Role Profile
+                      </span>
+                      <h3 className="text-lg font-black text-zinc-900 dark:text-zinc-50">
+                        {ROLE_LABELS[selectedRoleTab]}
+                      </h3>
+                    </div>
+
+                    <p className="text-xs text-zinc-500 dark:text-zinc-450 leading-relaxed font-semibold">
+                      {ROLE_DESCRIPTIONS[selectedRoleTab]}
+                    </p>
+
+                    <div className="mt-auto pt-4 border-t border-dashed dark:border-zinc-850">
+                      <span className="text-[10px] text-zinc-400 uppercase font-extrabold tracking-wider block mb-1">
+                        Assigned Active Users
+                      </span>
+                      <span className="text-xl font-bold text-zinc-850 dark:text-zinc-200">
+                        {usersList.filter((u) => u.role === selectedRoleTab && u.isActive).length} Members
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Column 2 & 3: Modules grid */}
+                  <div className="md:col-span-2">
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      {matrixModules.map((m) => {
+                        const cell = getMatrixCell(m.key, selectedRoleTab);
+                        let statusIcon = null;
+
+                        switch (cell.text) {
+                          case "FULL":
+                            statusIcon = <CheckCircle2 className="h-3.5 w-3.5 mr-1" />;
+                            break;
+                          case "LTD":
+                            statusIcon = <ShieldAlert className="h-3.5 w-3.5 mr-1" />;
+                            break;
+                          case "VIEW":
+                            statusIcon = <Eye className="h-3.5 w-3.5 mr-1" />;
+                            break;
+                          case "NO":
+                          default:
+                            statusIcon = <Lock className="h-3.5 w-3.5 mr-1" />;
+                            break;
+                        }
+
                         return (
-                          <td key={`${m.key}-${r.key}`} className="py-3.5 px-2">
-                            <span className={`inline-flex items-center justify-center w-24 py-1.5 rounded-lg text-[9px] font-extrabold tracking-widest ${cell.style}`}>
-                              {cell.text}
-                            </span>
-                          </td>
+                          <div
+                            key={m.key}
+                            className="border dark:border-zinc-850 p-4 rounded-xl flex flex-col gap-2 bg-white dark:bg-zinc-950 hover:shadow-sm transition-all"
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="font-bold text-xs text-zinc-850 dark:text-zinc-200">
+                                {m.name}
+                              </span>
+                              <span
+                                className={`inline-flex items-center px-2 py-0.5 rounded-md text-[9px] font-extrabold tracking-wider border uppercase ${cell.style}`}
+                              >
+                                {statusIcon}
+                                {cell.text === "FULL"
+                                  ? "Full Access"
+                                  : cell.text === "LTD"
+                                  ? "Limited"
+                                  : cell.text === "VIEW"
+                                  ? "View Only"
+                                  : "No Access"}
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-zinc-500 dark:text-zinc-500 leading-snug font-medium">
+                              {getMatrixPermissionDetail(cell.text)}
+                            </p>
+                          </div>
                         );
                       })}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              /* Legible Comparison Grid layout */
+              <div className="space-y-6">
+                <div className="overflow-x-auto rounded-xl border border-zinc-100 dark:border-zinc-900">
+                  <table className="w-full text-center border-collapse min-w-[800px]">
+                    <thead>
+                      <tr className="bg-zinc-50/60 dark:bg-zinc-900/40 text-zinc-500 text-xs font-bold uppercase tracking-wider border-b border-zinc-100 dark:border-zinc-900">
+                        <th className="py-4 px-6 text-left w-[220px]">Module Operations</th>
+                        {matrixRoles.map((r) => (
+                          <th key={r.key} className="py-4 px-2">
+                            {r.label}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-zinc-100 dark:divide-zinc-900 text-zinc-800 dark:text-zinc-300 text-xs font-semibold">
+                      {matrixModules.map((m) => (
+                        <tr key={m.key} className="hover:bg-zinc-50/30 dark:hover:bg-zinc-900/10">
+                          <td className="py-3.5 px-6 text-left font-bold text-zinc-700 dark:text-zinc-300">
+                            {m.name}
+                          </td>
+                          {matrixRoles.map((r) => {
+                            const cell = getMatrixCell(m.key, r.key);
+                            return (
+                              <td key={`${m.key}-${r.key}`} className="py-3.5 px-2">
+                                <span className={`inline-flex items-center justify-center w-24 py-1.5 rounded-lg text-[9px] font-extrabold tracking-widest ${cell.style}`}>
+                                  {cell.text}
+                                </span>
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
 
-            {/* Legend guide */}
-            <div className="flex flex-wrap items-center justify-center gap-6 mt-6 pt-4 border-t border-zinc-100 dark:border-zinc-900 text-[10px] font-bold text-zinc-500">
-              <span className="flex items-center gap-2">
-                <span className="w-3.5 h-3.5 rounded bg-emerald-500/15 border border-emerald-500/25" />
-                FULL ACCESS (CRUD)
-              </span>
-              <span className="flex items-center gap-2">
-                <span className="w-3.5 h-3.5 rounded bg-blue-500/15 border border-blue-500/25" />
-                VIEW ONLY
-              </span>
-              <span className="flex items-center gap-2">
-                <span className="w-3.5 h-3.5 rounded bg-amber-500/15 border border-amber-500/25" />
-                LIMITED / SEGREGATED
-              </span>
-              <span className="flex items-center gap-2">
-                <span className="w-3.5 h-3.5 rounded bg-zinc-100 border border-zinc-200 dark:bg-zinc-900 dark:border-zinc-800" />
-                NO ACCESS
-              </span>
-            </div>
+                {/* Legend guide */}
+                <div className="flex flex-wrap items-center justify-center gap-6 mt-6 pt-4 border-t border-zinc-100 dark:border-zinc-900 text-[10px] font-bold text-zinc-500">
+                  <span className="flex items-center gap-2">
+                    <span className="w-3.5 h-3.5 rounded bg-emerald-500/15 border border-emerald-500/25" />
+                    FULL ACCESS (CRUD)
+                  </span>
+                  <span className="flex items-center gap-2">
+                    <span className="w-3.5 h-3.5 rounded bg-blue-500/15 border border-blue-500/25" />
+                    VIEW ONLY
+                  </span>
+                  <span className="flex items-center gap-2">
+                    <span className="w-3.5 h-3.5 rounded bg-amber-500/15 border border-amber-500/25" />
+                    LIMITED / SEGREGATED
+                  </span>
+                  <span className="flex items-center gap-2">
+                    <span className="w-3.5 h-3.5 rounded bg-zinc-100 border border-zinc-200 dark:bg-zinc-900 dark:border-zinc-800" />
+                    NO ACCESS
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       ) : (

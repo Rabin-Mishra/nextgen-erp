@@ -7,6 +7,7 @@ import { revalidatePath } from "next/cache";
 import Decimal from "decimal.js";
 import type { InvoiceStatus, InvoiceType, PaymentMethod, PaymentMode } from "@/generated/prisma/client";
 import { nextCode, serializeForClient } from "@/lib/utils";
+import { checkServerPermission } from "@/auth/permissions.server";
 import {
   createCustomerSchema,
   createInvoiceSchema,
@@ -111,6 +112,7 @@ async function resolveUnitPrice(tx: any, productId: string, invoiceType: Invoice
 }
 
 export async function createInvoice(data: CreateInvoiceInput, passedUserId?: string) {
+  await checkServerPermission("sales", "create");
   const session = await auth()
   if (!session?.user?.id) {
     return { success: false, error: "Not authenticated" }
@@ -383,6 +385,7 @@ export async function quickSale(data: QuickSaleInput, userId?: string) {
 }
 
 export async function recordSalePayment(data: RecordSalePaymentInput, userId?: string) {
+  await checkServerPermission("sales", "create");
   const parsed = recordSalePaymentSchema.parse(data);
   const db = await getDb();
   const createdBy = await resolveUserId(db, userId);
@@ -473,6 +476,7 @@ export async function recordSalePayment(data: RecordSalePaymentInput, userId?: s
 }
 
 export async function createSalesReturn(data: CreateReturnInput, userId?: string) {
+  await checkServerPermission("sales", "create");
   const parsed = createReturnSchema.parse(data);
   const db = await getDb();
   const createdBy = await resolveUserId(db, userId);
@@ -673,6 +677,7 @@ export async function createSalesReturn(data: CreateReturnInput, userId?: string
 }
 
 export async function cancelInvoice(id: string, userId?: string) {
+  await checkServerPermission("sales", "delete");
   const db = await getDb();
   const createdBy = await resolveUserId(db, userId);
   const invoice = await db.salesInvoice.findUnique({ where: { id }, include: { items: true } });
@@ -730,6 +735,7 @@ export async function cancelInvoice(id: string, userId?: string) {
 }
 
 export async function createCustomer(data: CreateCustomerInput, userId?: string) {
+  await checkServerPermission("sales", "create");
   const parsed = createCustomerSchema.parse(data);
   const db = await getDb();
   const createdBy = await resolveUserId(db, userId);
@@ -784,6 +790,7 @@ export async function createCustomer(data: CreateCustomerInput, userId?: string)
 }
 
 export async function updateCustomer(id: string, data: UpdateCustomerInput, userId?: string) {
+  await checkServerPermission("sales", "edit");
   const parsed = updateCustomerSchema.parse(data);
   const db = await getDb();
   const createdBy = await resolveUserId(db, userId);
@@ -838,6 +845,7 @@ export async function fetchUnpaidInvoicesAction(customerId: string) {
 }
 
 export async function deleteCustomer(id: string, userId?: string) {
+  await checkServerPermission("sales", "delete");
   const db = await getDb();
   const createdBy = await resolveUserId(db, userId);
 

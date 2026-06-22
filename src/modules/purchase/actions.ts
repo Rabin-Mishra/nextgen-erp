@@ -21,6 +21,7 @@ import {
   type UpdatePurchaseOrderInput,
   type UpdateSupplierInput,
 } from "./types";
+import { checkServerPermission } from "@/auth/permissions.server";
 import { getSystemSettings } from "@/lib/settings-store";
 import { getPOById, getSuppliers, getActiveProducts, getVendorLedger, getSupplierById } from "./queries";
 
@@ -77,6 +78,7 @@ async function resolveActiveUserId(db: any, userId: string): Promise<string> {
 }
 
 export async function createPurchaseOrder(data: CreatePurchaseOrderInput, userId: string) {
+  await checkServerPermission("purchase", "create");
   const parsed = createPurchaseOrderSchema.parse(data);
   const db = await getDb();
   const activeUserId = await resolveActiveUserId(db, userId);
@@ -149,6 +151,7 @@ export async function createPurchaseOrder(data: CreatePurchaseOrderInput, userId
 }
 
 export async function updatePurchaseOrder(id: string, data: UpdatePurchaseOrderInput, userId: string) {
+  await checkServerPermission("purchase", "edit");
   const parsed = updatePurchaseOrderSchema.parse(data);
   const db = await getDb();
   const activeUserId = await resolveActiveUserId(db, userId);
@@ -265,6 +268,7 @@ export async function updatePurchaseOrder(id: string, data: UpdatePurchaseOrderI
 }
 
 export async function addPOItem(data: AddPOItemInput, userId: string) {
+  await checkServerPermission("purchase", "edit");
   const parsed = addPOItemSchema.parse(data);
   const db = await getDb();
   const activeUserId = await resolveActiveUserId(db, userId);
@@ -310,6 +314,7 @@ export async function addPOItem(data: AddPOItemInput, userId: string) {
 }
 
 export async function submitPurchaseOrder(id: string, userId: string) {
+  await checkServerPermission("purchase", "edit");
   const db = await getDb();
   const activeUserId = await resolveActiveUserId(db, userId);
   const po = await db.purchaseOrder.findUnique({ where: { id }, include: { items: true } });
@@ -329,6 +334,7 @@ export async function submitPurchaseOrder(id: string, userId: string) {
 }
 
 export async function receiveGoods(data: ReceiveGoodsInput, userId: string) {
+  await checkServerPermission("purchase", "edit");
   const parsed = receiveGoodsSchema.parse(data);
   const db = await getDb();
   const activeUserId = await resolveActiveUserId(db, userId);
@@ -474,6 +480,7 @@ export async function receiveGoods(data: ReceiveGoodsInput, userId: string) {
 }
 
 export async function recordPurchasePayment(data: RecordPurchasePaymentInput, userId: string) {
+  await checkServerPermission("purchase", "create");
   const parsed = recordPurchasePaymentSchema.parse(data);
   const db = await getDb();
   const activeUserId = await resolveActiveUserId(db, userId);
@@ -562,6 +569,7 @@ export async function recordPurchasePayment(data: RecordPurchasePaymentInput, us
 
 
 export async function cancelPurchaseOrder(id: string, userId: string) {
+  await checkServerPermission("purchase", "delete");
   const db = await getDb();
   const activeUserId = await resolveActiveUserId(db, userId);
   const po = await db.purchaseOrder.findUnique({ where: { id } });
@@ -580,6 +588,7 @@ export async function cancelPurchaseOrder(id: string, userId: string) {
 }
 
 export async function createSupplier(data: CreateSupplierInput, userId: string) {
+  await checkServerPermission("purchase", "create");
   const parsed = createSupplierSchema.parse(data);
   const db = await getDb();
   const activeUserId = await resolveActiveUserId(db, userId);
@@ -613,6 +622,7 @@ export async function createSupplier(data: CreateSupplierInput, userId: string) 
 }
 
 export async function updateSupplier(id: string, data: UpdateSupplierInput, userId: string) {
+  await checkServerPermission("purchase", "edit");
   const parsed = updateSupplierSchema.parse(data);
   const db = await getDb();
   const activeUserId = await resolveActiveUserId(db, userId);
@@ -666,6 +676,7 @@ export async function fetchSupplierDetails(supplierId: string) {
 }
 
 export async function deleteSupplier(id: string, userId: string) {
+  await checkServerPermission("purchase", "delete");
   const db = await getDb();
   const activeUserId = await resolveActiveUserId(db, userId);
 
@@ -698,6 +709,7 @@ export async function deleteSupplier(id: string, userId: string) {
 }
 
 export async function deletePurchaseOrder(id: string, userId: string) {
+  await checkServerPermission("purchase", "delete");
   const db = await getDb();
   const activeUserId = await resolveActiveUserId(db, userId);
 
@@ -734,6 +746,7 @@ export async function createPurchaseReturn(data: {
   notes: string;
   items: Array<{ productId: string; qty: number; unitPrice: number }>;
 }, userId: string) {
+  await checkServerPermission("purchase", "create");
   const db = await getDb();
   const activeUserId = await resolveActiveUserId(db, userId);
 
