@@ -16,17 +16,24 @@ export async function fetchInventoryItems(opts: FetchInventoryOptions = {}) {
   const { page = 1, pageSize = 25, search = null, categoryId = null, brandId = null, lowStock = null } = opts;
   const db = await getDb();
 
-  const where: any = {};
-
-  if (categoryId) where.product = { ...(where.product || {}), categoryId };
-  if (brandId) where.product = { ...(where.product || {}), brandId };
+  const where: any = {
+    product: {
+      isActive: true,
+      ...(categoryId ? { categoryId } : {}),
+      ...(brandId ? { brandId } : {}),
+    }
+  };
 
   if (search) {
-    where.OR = [
-      { product: { name: { contains: search, mode: 'insensitive' } } },
-      { product: { code: { contains: search, mode: 'insensitive' } } },
-      { product: { brand: { name: { contains: search, mode: 'insensitive' } } } },
-      { warehouse: { name: { contains: search, mode: 'insensitive' } } },
+    where.AND = [
+      {
+        OR: [
+          { product: { name: { contains: search, mode: 'insensitive' } } },
+          { product: { code: { contains: search, mode: 'insensitive' } } },
+          { product: { brand: { name: { contains: search, mode: 'insensitive' } } } },
+          { warehouse: { name: { contains: search, mode: 'insensitive' } } },
+        ]
+      }
     ];
   }
 
@@ -34,7 +41,7 @@ export async function fetchInventoryItems(opts: FetchInventoryOptions = {}) {
     const rawIds = await db.$queryRaw<{ id: string }[]>`
       SELECT s.id FROM inventory_stock s 
       JOIN products p ON s.product_id = p.id 
-      WHERE s.quantity <= p.reorder_level
+      WHERE s.quantity <= p.reorder_level AND p.is_active = true
     `;
     const ids = rawIds.map((r: any) => r.id);
     where.id = { in: ids };
@@ -108,15 +115,43 @@ export async function fetchStockSummary() {
 
   const totalProducts = await db.product.count({ where: { isActive: true } });
 
-  const totalStockAgg = await db.inventoryStock.aggregate({ _sum: { quantity: true } });
+  const totalStockAgg = await db.inventoryStock.aggregate({
+    where: { product: { isActive: true } },
+    _sum: { quantity: true }
+  });
   const totalStock = Number(totalStockAgg._sum.quantity ?? 0);
 
-  // lowStockCount: number of inventory_stock rows where quantity <= product.reorderLevel
-  const raw = await db.$queryRaw`SELECT COUNT(1) as cnt FROM inventory_stock s JOIN products p ON s.product_id = p.id WHERE s.quantity <= p.reorder_level`;
+  // lowStockCount: number of inventory_stock rows where quantity <= product.reorderLevel and product is active
+  const raw = await db.$queryRaw`
+    SELECT COUNT(1) as cnt 
+    FROM inventory_stock s 
+    JOIN products p ON s.product_id = p.id 
+    WHERE s.quantity <= p.reorder_level AND p.is_active = true
+  `;
   const lowStockCount = Array.isArray(raw) && raw[0] ? Number((raw[0] as any).cnt ?? 0) : 0;
 
+  // Calculate total active products valuation in Rupees (purchase price of the latest active variant)
+  const activeProducts = await db.product.findMany({
+    where: { isActive: true },
+    include: {
+      stockEntries: true,
+      variants: {
+        where: { isActive: true },
+        orderBy: { effectiveDate: 'desc' },
+        take: 1
+      }
+    }
+  });
+
+  let totalValue = new Decimal(0);
+  for (const product of activeProducts) {
+    const totalQty = product.stockEntries.reduce((acc, s) => acc.plus(s.quantity), new Decimal(0));
+    const price = product.variants[0]?.purchasePrice ? new Decimal(product.variants[0].purchasePrice) : new Decimal(0);
+    totalValue = totalValue.plus(totalQty.times(price));
+  }
+
   return serializeForClient(
-    inventorySummarySchema.parse({ totalProducts, totalStock, lowStockCount })
+    inventorySummarySchema.parse({ totalProducts, totalStock, lowStockCount, totalValue: totalValue.toNumber() })
   );
 }
 
@@ -124,6 +159,9 @@ export async function fetchInventoryAlerts() {
   const db = await getDb();
 
   const all = await db.inventoryStock.findMany({ 
+    where: {
+      product: { isActive: true }
+    },
     include: { 
       product: {
         include: {

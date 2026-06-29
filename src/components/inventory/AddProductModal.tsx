@@ -222,7 +222,7 @@ export function AddProductModal() {
           <Plus size={16} /> Add Product
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-2xl rounded-2xl p-6">
+      <DialogContent className="max-w-2xl rounded-2xl p-6 max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-xl font-bold text-zinc-900 dark:text-zinc-50 flex items-center gap-2">
             {step === 1

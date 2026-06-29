@@ -17,6 +17,7 @@ import BrandsTab from "@/components/inventory/BrandsTab";
 import { getCurrentUser } from "@/auth/session";
 import { hasPermission } from "@/auth/permissions";
 import { Role } from "@/lib/constants";
+import { formatNPR } from "@/lib/utils";
 
 type InventoryPageProps = {
   searchParams?: Promise<{ tab?: string; search?: string; page?: string; filter?: string }>;
@@ -62,7 +63,7 @@ export default async function InventoryPage({ searchParams }: InventoryPageProps
       />
 
       {/* Summary Cards */}
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card className="border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950">
           <CardHeader>
             <CardTitle>Total Active Products</CardTitle>
@@ -80,6 +81,18 @@ export default async function InventoryPage({ searchParams }: InventoryPageProps
           </CardHeader>
           <CardContent>
             <div className="mt-4 text-3xl font-semibold text-zinc-900 dark:text-zinc-50">{summary.totalStock}</div>
+          </CardContent>
+        </Card>
+
+        <Card className="border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950">
+          <CardHeader>
+            <CardTitle>Active Stock Value</CardTitle>
+            <CardDescription>Value of active items in stock at cost.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="mt-4 text-3xl font-semibold text-zinc-900 dark:text-zinc-50">
+              {formatNPR(summary.totalValue)}
+            </div>
           </CardContent>
         </Card>
 

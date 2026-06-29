@@ -70,6 +70,7 @@ export const inventorySummarySchema = z.object({
   totalProducts: z.number().int().nonnegative(),
   totalStock: z.number().nonnegative(),
   lowStockCount: z.number().int().nonnegative(),
+  totalValue: z.number().nonnegative(),
 });
 
 export type InventorySummary = z.infer<typeof inventorySummarySchema>;

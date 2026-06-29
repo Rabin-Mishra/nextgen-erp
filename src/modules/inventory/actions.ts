@@ -606,6 +606,7 @@ export async function updateInventoryProduct(productId: string, data: {
   retailPrice?: number | string;
   wholesalePrice?: number | string;
   projectPrice?: number | string;
+  isActive?: boolean;
 }) {
   await checkServerPermission("inventory", "edit");
   const db = await getDb();
@@ -640,6 +641,7 @@ export async function updateInventoryProduct(productId: string, data: {
         description: data.description?.trim() || null,
         minStockLevel: Number(data.minStockLevel),
         reorderLevel: Number(data.reorderLevel),
+        isActive: data.isActive !== undefined ? data.isActive : undefined,
       },
     });
 

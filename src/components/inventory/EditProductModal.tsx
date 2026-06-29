@@ -39,6 +39,7 @@ export function EditProductModal({ productId, open, onOpenChange }: EditProductM
     retailPrice: number;
     wholesalePrice: number;
     projectPrice: number;
+    isActive: boolean;
   }>({
     name: "",
     categoryId: "",
@@ -56,6 +57,7 @@ export function EditProductModal({ productId, open, onOpenChange }: EditProductM
     retailPrice: 0,
     wholesalePrice: 0,
     projectPrice: 0,
+    isActive: true,
   });
 
   const [options, setOptions] = useState({
@@ -111,6 +113,7 @@ export function EditProductModal({ productId, open, onOpenChange }: EditProductM
           retailPrice: activeVariant ? Number(activeVariant.retailPrice) : 0,
           wholesalePrice: activeVariant ? Number(activeVariant.wholesalePrice) : 0,
           projectPrice: activeVariant ? Number(activeVariant.projectPrice) : 0,
+          isActive: product.isActive !== undefined ? product.isActive : true,
         });
 
       } catch (err: any) {
@@ -190,6 +193,7 @@ export function EditProductModal({ productId, open, onOpenChange }: EditProductM
         retailPrice: form.supplierId ? form.retailPrice : undefined,
         wholesalePrice: form.supplierId ? form.wholesalePrice : undefined,
         projectPrice: form.supplierId ? form.projectPrice : undefined,
+        isActive: form.isActive,
       });
 
       toast.success("Product specifications and pricing matrices successfully updated.");
@@ -205,7 +209,7 @@ export function EditProductModal({ productId, open, onOpenChange }: EditProductM
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl rounded-2xl p-6">
+      <DialogContent className="max-w-2xl rounded-2xl p-6 max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-xl font-bold text-zinc-900 dark:text-zinc-50 flex items-center gap-2">
             <Edit3 className="h-5 w-5 text-primary" />
@@ -421,6 +425,28 @@ export function EditProductModal({ productId, open, onOpenChange }: EditProductM
                     className="w-full min-h-16 rounded-xl border border-zinc-200 dark:border-zinc-800 p-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 bg-transparent text-zinc-900 dark:text-zinc-50 bg-white dark:bg-zinc-950"
                     disabled={loading}
                   />
+                </div>
+
+                {/* Product Active Toggle Switch */}
+                <div className="flex items-center justify-between p-3 bg-zinc-50 dark:bg-zinc-900/40 border border-zinc-150 dark:border-zinc-900 rounded-2xl col-span-2">
+                  <div className="flex flex-col">
+                    <span className="text-xs font-bold text-zinc-800 dark:text-zinc-200">Product Active Status</span>
+                    <span className="text-[10px] text-zinc-400 font-semibold">Enable or disable product visibility and operational postings</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => update("isActive", !form.isActive)}
+                    className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                      form.isActive ? "bg-emerald-500" : "bg-zinc-250 dark:bg-zinc-800"
+                    }`}
+                    disabled={loading}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                        form.isActive ? "translate-x-5" : "translate-x-0"
+                      }`}
+                    />
+                  </button>
                 </div>
               </div>
             </div>
