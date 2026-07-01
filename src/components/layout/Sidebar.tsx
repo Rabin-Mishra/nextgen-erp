@@ -22,6 +22,7 @@ import {
   LogOut,
   CreditCard,
   TrendingUp,
+  Landmark,
 } from "lucide-react";
 import { Button } from "../ui/button";
 
@@ -48,6 +49,7 @@ const navItems: NavItem[] = [
   { label: "Purchase", href: "/purchase", icon: ShoppingBag, module: "purchase" },
   { label: "Sales", href: "/sales", icon: FileSpreadsheet, module: "sales" },
   { label: "Projects", href: "/projects", icon: Briefcase, module: "projects" },
+  { label: "Capital & Assets", href: "/assets", icon: Landmark, module: "ledger" },
   { label: "Ledger", href: "/ledger", icon: BookOpen, module: "ledger" },
   { label: "Cash Book", href: "/cashbook", icon: Wallet, module: "cashbook" },
   { label: "Expenses", href: "/expenses", icon: CreditCard, module: "expenses" },

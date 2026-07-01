@@ -331,3 +331,70 @@ export async function fetchFiscalYearReportDataAction(fiscalYearId: string) {
   };
 }
 
+export async function fetchCapitalEntriesAction() {
+  const db = await getDb();
+  const entries = await db.cashBookEntry.findMany({
+    where: {
+      type: "RECEIVED",
+      referenceType: "FINANCING",
+    },
+    orderBy: [
+      { entryDate: "desc" },
+      { createdAt: "desc" },
+    ],
+    include: { creator: { select: { name: true } } },
+  });
+  
+  return entries.map(e => ({
+    ...e,
+    amount: e.amount.toString(),
+  }));
+}
+
+export async function addCapitalEntryAction(data: {
+  entryDate: string;
+  amount: number;
+  description?: string;
+  paymentMethod: PaymentMode;
+}) {
+  await checkServerPermission("cashbook", "create");
+  const db = await getDb();
+  const session = await getCurrentUser();
+  if (!session?.id) throw new Error("Unauthorized");
+
+  const entry = await db.$transaction(async (tx) => {
+    const cashEntry = await tx.cashBookEntry.create({
+      data: {
+        entryDate: new Date(data.entryDate),
+        type: "RECEIVED",
+        amount: data.amount,
+        description: data.description || "Owner Capital Contribution",
+        paymentMethod: data.paymentMethod,
+        referenceType: "FINANCING",
+        createdBy: session.id,
+      },
+    });
+
+    await tx.auditLog.create({
+      data: {
+        userId: session.id,
+        action: "CREATE",
+        module: "CAPITAL",
+        recordId: cashEntry.id,
+        newValues: {
+          id: cashEntry.id,
+          amount: data.amount.toString(),
+          paymentMethod: data.paymentMethod,
+        },
+      },
+    });
+
+    return cashEntry;
+  });
+
+  revalidatePath("/assets");
+  revalidatePath("/cashbook");
+  revalidatePath("/dashboard");
+  return { success: true, entry };
+}
+

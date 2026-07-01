@@ -728,6 +728,7 @@ export function ExpensesPage({
                   <option value="Interest Paid">Interest Paid</option>
                   <option value="Miscellaneous Expenses">Miscellaneous Expenses</option>
                   <option value="Transport Inward">Transport Inward</option>
+                  <option value="Depreciation">Depreciation</option>
                 </select>
               </div>
               <div className="grid grid-cols-2 gap-3">

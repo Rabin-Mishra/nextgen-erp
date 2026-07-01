@@ -13,6 +13,7 @@ export const expenseCategorySchema = z.enum([
   "Interest Paid",
   "Miscellaneous Expenses",
   "Transport Inward",
+  "Depreciation",
   "Shop Rent",
   "Transport Cost",
   "Staff Salary",

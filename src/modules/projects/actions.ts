@@ -96,6 +96,28 @@ export async function createProject(data: CreateProjectInput, userId?: string) {
       include: { client: true },
     });
 
+    const contractAmount = toDecimal(parsed.contractAmount);
+    if (project.client.customerType === "PROJECT" && contractAmount.greaterThan(0)) {
+      const customerBalance = await latestCustomerBalance(tx, project.clientId);
+      const runningBalance = customerBalance.plus(contractAmount);
+
+      await tx.ledgerEntry.create({
+        data: {
+          entryDate: toDate(parsed.startDate) || new Date(),
+          partyType: "CUSTOMER",
+          partyId: project.clientId,
+          entryType: "DEBIT",
+          amount: contractAmount,
+          referenceType: "PROJECT",
+          referenceId: project.id,
+          description: `Contract value for project: ${project.name} (${project.projectCode})`,
+          runningBalance,
+          channelType: "PROJECT",
+          createdBy,
+        },
+      });
+    }
+
     const advanceAmount = parsed.advanceAmount ? toDecimal(parsed.advanceAmount) : new Decimal(0);
     if (advanceAmount.greaterThan(0)) {
       const paymentMethod = parsed.advancePaymentMethod || "CASH";
@@ -193,6 +215,51 @@ export async function updateProject(id: string, data: UpdateProjectInput, userId
       },
       include: { client: true },
     });
+
+    if (updated.client.customerType === "PROJECT" && contractAmount !== undefined) {
+      const oldContractAmount = toDecimal(project.contractAmount);
+      const newContractAmount = toDecimal(updated.contractAmount);
+      if (!oldContractAmount.equals(newContractAmount)) {
+        const diff = newContractAmount.minus(oldContractAmount);
+        const customerBalance = await latestCustomerBalance(tx, updated.clientId);
+        if (diff.greaterThan(0)) {
+          const runningBalance = customerBalance.plus(diff);
+          await tx.ledgerEntry.create({
+            data: {
+              entryDate: new Date(),
+              partyType: "CUSTOMER",
+              partyId: updated.clientId,
+              entryType: "DEBIT",
+              amount: diff,
+              referenceType: "PROJECT",
+              referenceId: updated.id,
+              description: `Contract value adjustment (increase) for project: ${updated.name} (${updated.projectCode})`,
+              runningBalance,
+              channelType: "PROJECT",
+              createdBy,
+            },
+          });
+        } else if (diff.lessThan(0)) {
+          const absDiff = diff.abs();
+          const runningBalance = customerBalance.minus(absDiff);
+          await tx.ledgerEntry.create({
+            data: {
+              entryDate: new Date(),
+              partyType: "CUSTOMER",
+              partyId: updated.clientId,
+              entryType: "CREDIT",
+              amount: absDiff,
+              referenceType: "PROJECT",
+              referenceId: updated.id,
+              description: `Contract value adjustment (decrease) for project: ${updated.name} (${updated.projectCode})`,
+              runningBalance,
+              channelType: "PROJECT",
+              createdBy,
+            },
+          });
+        }
+      }
+    }
 
     await tx.auditLog.create({
       data: {
@@ -445,24 +512,27 @@ export async function issueSupplyToProject(data: IssueSupplyInput, userId?: stri
     });
 
     // Post double-entry DEBIT to Customer Ledger under the PROJECT channel type
-    const customerBalance = await latestCustomerBalance(tx, project.clientId);
-    const runningBalance = customerBalance.plus(totalAmount);
-    
-    await tx.ledgerEntry.create({
-      data: {
-        entryDate: invoiceDate,
-        partyType: "CUSTOMER",
-        partyId: project.clientId,
-        entryType: "DEBIT",
-        amount: totalAmount,
-        referenceType: "INVOICE",
-        referenceId: invoice.id,
-        description: `Project supply billing for ${project.name}: INV-${invoiceNumber}`,
-        runningBalance,
-        channelType: "PROJECT",
-        createdBy,
-      },
-    });
+    const isProjectCustomer = project.client.customerType === "PROJECT";
+    if (!isProjectCustomer) {
+      const customerBalance = await latestCustomerBalance(tx, project.clientId);
+      const runningBalance = customerBalance.plus(totalAmount);
+      
+      await tx.ledgerEntry.create({
+        data: {
+          entryDate: invoiceDate,
+          partyType: "CUSTOMER",
+          partyId: project.clientId,
+          entryType: "DEBIT",
+          amount: totalAmount,
+          referenceType: "INVOICE",
+          referenceId: invoice.id,
+          description: `Project supply billing for ${project.name}: INV-${invoiceNumber}`,
+          runningBalance,
+          channelType: "PROJECT",
+          createdBy,
+        },
+      });
+    }
 
     await tx.auditLog.create({
       data: {
@@ -496,6 +566,7 @@ export async function deleteProject(id: string, userId?: string) {
     include: {
       salesInvoices: { select: { id: true } },
       projectBilling: { select: { id: true } },
+      client: { select: { customerType: true } },
     },
   });
 
@@ -512,6 +583,27 @@ export async function deleteProject(id: string, userId?: string) {
   }
 
   const result = await db.$transaction(async (tx) => {
+    const oldContractAmount = toDecimal(project.contractAmount);
+    if (project.client.customerType === "PROJECT" && oldContractAmount.greaterThan(0)) {
+      const customerBalance = await latestCustomerBalance(tx, project.clientId);
+      const runningBalance = customerBalance.minus(oldContractAmount);
+      await tx.ledgerEntry.create({
+        data: {
+          entryDate: new Date(),
+          partyType: "CUSTOMER",
+          partyId: project.clientId,
+          entryType: "CREDIT",
+          amount: oldContractAmount,
+          referenceType: "PROJECT_DELETE",
+          referenceId: project.id,
+          description: `Contract value reversed due to project deletion: ${project.name} (${project.projectCode})`,
+          runningBalance,
+          channelType: "PROJECT",
+          createdBy: activeUserId,
+        },
+      });
+    }
+
     const deleted = await tx.project.delete({ where: { id } });
 
     await tx.auditLog.create({

@@ -96,6 +96,7 @@ export function AddExpenseModal({ userId }: AddExpenseModalProps) {
               <option value="Interest Paid">Interest Paid</option>
               <option value="Miscellaneous Expenses">Miscellaneous Expenses</option>
               <option value="Transport Inward">Transport Inward</option>
+              <option value="Depreciation">Depreciation</option>
             </select>
           </div>
 

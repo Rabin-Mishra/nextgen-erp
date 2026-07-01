@@ -105,7 +105,8 @@ export async function getExpenseStats() {
     "Bank Charges",
     "Interest Paid",
     "Miscellaneous Expenses",
-    "Transport Inward"
+    "Transport Inward",
+    "Depreciation"
   ];
   const breakdown = categories.map((cat) => {
     const val = mappedExpenses

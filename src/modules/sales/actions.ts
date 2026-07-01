@@ -278,23 +278,31 @@ export async function createInvoice(data: CreateInvoiceInput, passedUserId?: str
       });
     }
 
-    let runningBalance = await latestCustomerBalance(tx, parsed.customerId);
-    runningBalance = runningBalance.plus(totalAmount);
-    await tx.ledgerEntry.create({
-      data: {
-        entryDate: invoiceDate,
-        partyType: "CUSTOMER",
-        partyId: parsed.customerId,
-        entryType: "DEBIT",
-        amount: totalAmount,
-        referenceType: "INVOICE",
-        referenceId: invoice.id,
-        description: `Invoice ${invoice.invoiceNumber}`,
-        runningBalance,
-        channelType: parsed.invoiceType,
-        createdBy: userId,
-      },
+    const customer = await tx.customer.findUnique({
+      where: { id: parsed.customerId },
+      select: { customerType: true }
     });
+    const isProjectCustomer = customer?.customerType === "PROJECT";
+
+    let runningBalance = await latestCustomerBalance(tx, parsed.customerId);
+    if (!isProjectCustomer) {
+      runningBalance = runningBalance.plus(totalAmount);
+      await tx.ledgerEntry.create({
+        data: {
+          entryDate: invoiceDate,
+          partyType: "CUSTOMER",
+          partyId: parsed.customerId,
+          entryType: "DEBIT",
+          amount: totalAmount,
+          referenceType: "INVOICE",
+          referenceId: invoice.id,
+          description: `Invoice ${invoice.invoiceNumber}`,
+          runningBalance,
+          channelType: parsed.invoiceType,
+          createdBy: userId,
+        },
+      });
+    }
 
     if (initialPayment.greaterThan(0)) {
       const initialPaymentMethod = toPaymentMode(parsed.initialPaymentMethod ?? parsed.paymentMethod ?? "CASH");
@@ -492,7 +500,10 @@ export async function createSalesReturn(data: CreateReturnInput, userId?: string
   const result = await db.$transaction(async (tx) => {
     const invoice = await tx.salesInvoice.findUnique({
       where: { id: parsed.invoiceId },
-      include: { items: { include: { product: true } } },
+      include: {
+        items: { include: { product: true } },
+        customer: true,
+      },
     });
     if (!invoice) throw new Error("Invoice not found");
     if (invoice.status === "CANCELLED") throw new Error("Cannot return items from a cancelled invoice");
@@ -622,22 +633,25 @@ export async function createSalesReturn(data: CreateReturnInput, userId?: string
     });
 
     // Ledger Credit Bookkeeping (receivables decremented with VAT included)
-    const runningBalance = (await latestCustomerBalance(tx, invoice.customerId)).minus(totalReturnAmount);
-    await tx.ledgerEntry.create({
-      data: {
-        entryDate: new Date(),
-        partyType: "CUSTOMER",
-        partyId: invoice.customerId,
-        entryType: "CREDIT",
-        amount: totalReturnAmount,
-        referenceType: "SALES_RETURN",
-        referenceId: salesReturn.id,
-        description: `Return ${returnNumber} against invoice ${invoice.invoiceNumber}: ${parsed.reason}`,
-        runningBalance,
-        channelType: invoice.invoiceType,
-        createdBy,
-      },
-    });
+    const isProjectCustomer = invoice.customer.customerType === "PROJECT";
+    if (!isProjectCustomer) {
+      const runningBalance = (await latestCustomerBalance(tx, invoice.customerId)).minus(totalReturnAmount);
+      await tx.ledgerEntry.create({
+        data: {
+          entryDate: new Date(),
+          partyType: "CUSTOMER",
+          partyId: invoice.customerId,
+          entryType: "CREDIT",
+          amount: totalReturnAmount,
+          referenceType: "SALES_RETURN",
+          referenceId: salesReturn.id,
+          description: `Return ${returnNumber} against invoice ${invoice.invoiceNumber}: ${parsed.reason}`,
+          runningBalance,
+          channelType: invoice.invoiceType,
+          createdBy,
+        },
+      });
+    }
 
     // Cash Book Integration (PAID entry since cash is paid out as refund)
     await tx.cashBookEntry.create({
